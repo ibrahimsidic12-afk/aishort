@@ -10,15 +10,16 @@ datasource db {
 // ─── Users & Teams ───────────────────────────────────────────────
 
 model User {
-  id        String   @id @default(cuid())
-  clerkId   String   @unique
-  email     String   @unique
+  id        String    @id @default(cuid())
+  clerkId   String    @unique
+  email     String    @unique
   name      String?
   avatarUrl String?
-  plan      Plan     @default(FREE)
-  credits   Int      @default(10)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  plan      Plan      @default(FREE)
+  credits   Int       @default(10)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   videos        Video[]
   clips         Clip[]
@@ -316,4 +317,18 @@ enum UsageType {
   CLIP_GENERATION
   CLIP_RENDER
   PUBLISH
+}
+
+
+
+// ─── Webhook Events (Idempotency) ───────────────────────────────
+
+model WebhookEvent {
+  id            String   @id @default(cuid())
+  stripeEventId String?  @unique
+  clerkEventId  String?  @unique
+  type          String
+  processedAt   DateTime @default(now())
+
+  @@map("webhook_events")
 }

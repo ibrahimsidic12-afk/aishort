@@ -57,3 +57,7 @@ export async function getUserById(userId: string): Promise<User | null> {
   });
   return user as User | null;
 }
+
+
+// Re-export getCurrentUser from clerk.ts so routes importing from "@/lib/auth/session" work
+export { getCurrentUser } from "./clerk";

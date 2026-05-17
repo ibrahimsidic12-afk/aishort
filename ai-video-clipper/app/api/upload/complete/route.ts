@@ -1,48 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth/session";
-import { confirmUpload } from "@/lib/storage/upload";
-import { triggerVideoProcessing } from "@/lib/jobs/processing";
-import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth/clerk";
+import { prisma } from "@/lib/db/prisma";
+import { enqueueTranscription } from "@/lib/queue/enqueue";
+import { completeUploadSchema } from "@/lib/validations/upload";
+import { recordUsage } from "@/lib/billing/usage";
 
 export async function POST(req: NextRequest) {
   try {
-    // TODO: Authenticate user
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
-    const { key, fileName, fileSize, duration } = body;
+    const parsed = completeUploadSchema.safeParse(body);
 
-    if (!key || !fileName) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Missing required fields: key, fileName" },
-        { status: 400 }
+        { error: "Invalid request", details: parsed.error.flatten().fieldErrors },
+        { status: 400 },
       );
     }
 
-    // TODO: Verify the upload actually completed in storage
-    await confirmUpload(key);
+    const { key, fileName, title, description } = parsed.data;
 
-    // TODO: Create video record in database
-    const video = await db.video.create({
+    // Create video record in database
+    const video = await prisma.video.create({
       data: {
         userId: user.id,
-        storageKey: key,
+        title: title || fileName.replace(/\.[^.]+$/, ""),
+        description: description || null,
         fileName,
-        fileSize,
-        duration,
-        status: "uploaded",
+        fileSize: 0, // Will be updated after processing
+        mimeType: "video/mp4",
+        storageKey: key,
+        status: "PROCESSING",
       },
     });
 
-    // TODO: Trigger background processing (transcription, analysis)
-    const job = await triggerVideoProcessing({
-      videoId: video.id,
-      userId: user.id,
-    });
+    // Record usage
+    await recordUsage(user.id, "VIDEO_UPLOAD", 1, { videoId: video.id });
+
+    // Enqueue transcription job
+    const job = await enqueueTranscription(video.id, user.id);
 
     return NextResponse.json({
       success: true,
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
     console.error("[UPLOAD_COMPLETE]", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

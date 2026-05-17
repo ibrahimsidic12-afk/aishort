@@ -1,62 +1,50 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth/session";
-import { generatePresignedUrl } from "@/lib/storage/presigned";
-import { validateFileType, validateFileSize } from "@/lib/upload/validation";
+import { getCurrentUser } from "@/lib/auth/clerk";
+import { createPresignedUploadUrl } from "@/lib/storage/upload";
+import { getVideoKey } from "@/lib/storage/r2";
+import { SUPPORTED_VIDEO_FORMATS, PLAN_LIMITS } from "@/lib/constants";
+import { presignedUploadSchema } from "@/lib/validations/upload";
 
 export async function POST(req: NextRequest) {
   try {
-    // TODO: Authenticate user
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
-    const { fileName, fileType, fileSize } = body;
+    const parsed = presignedUploadSchema.safeParse(body);
 
-    if (!fileName || !fileType || !fileSize) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Missing required fields: fileName, fileType, fileSize" },
-        { status: 400 }
+        { error: "Invalid request", details: parsed.error.flatten().fieldErrors },
+        { status: 400 },
       );
     }
 
-    // TODO: Validate file type (mp4, mov, avi, webm, etc.)
-    if (!validateFileType(fileType)) {
+    const { fileName, fileType, fileSize } = parsed.data;
+
+    // Check plan limits
+    const limits = PLAN_LIMITS[user.plan as keyof typeof PLAN_LIMITS];
+    if (fileSize > limits.maxFileSize) {
       return NextResponse.json(
-        { error: "Unsupported file type" },
-        { status: 400 }
+        { error: `File too large. Max ${limits.maxFileSize / 1_000_000}MB for ${user.plan} plan.` },
+        { status: 400 },
       );
     }
 
-    // TODO: Validate file size against user's plan limits
-    if (!validateFileSize(fileSize, user.plan)) {
-      return NextResponse.json(
-        { error: "File size exceeds plan limit" },
-        { status: 400 }
-      );
-    }
+    // Generate storage key and presigned URL
+    const key = getVideoKey(user.id, fileName);
+    const uploadUrl = await createPresignedUploadUrl(key, fileType);
+    const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
 
-    // TODO: Check user's upload quota
-    // TODO: Generate unique storage key
-    const { url, key, expiresAt } = await generatePresignedUrl({
-      userId: user.id,
-      fileName,
-      fileType,
-      fileSize,
-    });
-
-    return NextResponse.json({
-      uploadUrl: url,
-      key,
-      expiresAt,
-    });
+    return NextResponse.json({ uploadUrl, key, expiresAt });
   } catch (error) {
     console.error("[UPLOAD_PRESIGNED]", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,0 +1,7 @@
+// This file is a reference pointer.
+// The actual Prisma schema lives at: prisma/schema.prisma
+// This file exists for IDE navigation convenience.
+//
+// To run migrations:   npx prisma migrate dev
+// To push schema:      npx prisma db push
+// To generate client:  npx prisma generate

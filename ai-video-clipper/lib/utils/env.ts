@@ -35,8 +35,8 @@ const serverEnvSchema = z.object({
   QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
   QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
 
-  // OpenAI
-  OPENAI_API_KEY: z.string().min(1),
+  // AI (Regolo)
+  REGOLO_API_KEY: z.string().min(1),
 
   // Transcription
   DEEPGRAM_API_KEY: z.string().optional(),

@@ -64,7 +64,7 @@ export const QUEUE_NAMES = {
 } as const;
 
 export const AI_DEFAULTS = {
-  MODEL: "gpt-4o",
+  MODEL: "deepseek-ai/DeepSeek-V3-0324",
   EMBEDDING_MODEL: "text-embedding-3-small",
   MAX_TOKENS: 4096,
   TEMPERATURE: 0.7,

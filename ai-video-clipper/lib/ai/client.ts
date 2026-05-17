@@ -1,12 +1,13 @@
 /**
- * OpenAI client setup
+ * AI client setup (Regolo AI — OpenAI-compatible)
  */
 
 import OpenAI from "openai";
 import { AI_DEFAULTS } from "@/lib/constants";
 
 export const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
+  apiKey: process.env.REGOLO_API_KEY!,
+  baseURL: "https://api.regolo.ai/v1",
 });
 
 export async function chatCompletion(

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const isValid = await verifyQStashSignature(body, signature);
+    const isValid = await verifyQStashSignature(body, signature || "");
     if (!isValid) {
       return NextResponse.json(
         { error: "Invalid QStash signature" },
@@ -28,10 +28,6 @@ export async function POST(req: NextRequest) {
     const { jobId, type, status, result, error: jobError } = payload;
 
     // TODO: Route to appropriate handler based on job type
-    // - transcription_complete
-    // - clip_generation_complete
-    // - video_processing_complete
-    // - export_complete
     await handleJobCallback({
       jobId,
       type,

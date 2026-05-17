@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Inter } from "next/font/google";
 import "./globals.css";
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: "AI Video Clipper - Turn Long Videos into Viral Shorts",
@@ -19,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html lang="en" className={inter.variable}>
+      <html lang="en">
         <body className="min-h-screen bg-background font-sans antialiased">
           {children}
         </body>

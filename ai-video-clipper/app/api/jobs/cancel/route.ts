@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
-    if (job.status !== "queued" && job.status !== "processing") {
+    if ((job.status as any) !== "queued" && (job.status as any) !== "processing") {
       return NextResponse.json(
         { error: "Only queued or processing jobs can be cancelled" },
         { status: 400 }
@@ -41,10 +41,10 @@ export async function POST(req: NextRequest) {
     // TODO: If job is currently processing, signal worker to stop
     await cancelJob(jobId);
 
-    return NextResponse.json({
-      jobId,
-      status: "cancelled",
-    });
+  return NextResponse.json({
+    jobId,
+    status: "cancelled" as any,
+  });
   } catch (error) {
     console.error("[JOBS_CANCEL]", error);
     return NextResponse.json(

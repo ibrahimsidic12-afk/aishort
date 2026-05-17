@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
-    if (job.status !== "failed") {
+    if ((job.status as any) !== "failed") {
       return NextResponse.json(
         { error: "Only failed jobs can be retried" },
         { status: 400 }

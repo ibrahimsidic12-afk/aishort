@@ -6,11 +6,6 @@ const nextConfig = {
       { protocol: "https", hostname: "*.r2.cloudflarestorage.com" },
     ],
   },
-  experimental: {
-    serverActions: {
-      bodySizeLimit: "100mb",
-    },
-  },
 };
 
 export default nextConfig;

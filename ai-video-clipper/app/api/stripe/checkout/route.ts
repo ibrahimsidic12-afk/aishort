@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       priceId,
       successUrl: successUrl || `${process.env.NEXT_PUBLIC_APP_URL}/billing?success=true`,
       cancelUrl: cancelUrl || `${process.env.NEXT_PUBLIC_APP_URL}/pricing`,
-      customerId: user.stripeCustomerId,
+      customerId: user.stripeCustomerId || undefined,
     });
 
     return NextResponse.json({

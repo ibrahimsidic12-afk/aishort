@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth/session";
+import { db } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
-    // TODO: Validate session token from cookies/headers
     const user = await getCurrentUser();
-
     if (!user) {
       return NextResponse.json(
         { authenticated: false, user: null },
@@ -14,7 +13,6 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // TODO: Fetch user subscription status and connected accounts
     return NextResponse.json({
       authenticated: true,
       user: {

@@ -317,3 +317,19 @@ enum UsageType {
   CLIP_RENDER
   PUBLISH
 }
+
+// ─── webhook integrations ───────────────────────────────────────
+
+model WebhookEvent {
+  id             String    @id @default(cuid())
+  stripeEventId  String    @unique
+  type           String
+  provider       String    @default("stripe")
+  processedAt    DateTime  @default(now())
+  payload        Json?
+
+  @@map("webhook_events")
+  @@index([stripeEventId])
+  @@index([provider])
+}
+

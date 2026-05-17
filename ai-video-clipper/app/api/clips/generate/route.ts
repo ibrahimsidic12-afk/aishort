@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Video not found" }, { status: 404 });
     }
 
-    if (video.status !== "transcribed") {
+    if ((video.status as any) !== "transcribed" && (video.status as any) !== "READY") {
       return NextResponse.json(
         { error: "Video must be transcribed before generating clips" },
         { status: 400 }

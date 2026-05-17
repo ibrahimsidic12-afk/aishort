@@ -1,0 +1,1 @@
+export { publishClip } from "./generator";

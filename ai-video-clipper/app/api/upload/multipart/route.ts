@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
   initiateMultipartUpload,
-  completeMultipartUpload,
   generatePartPresignedUrl,
+  completeMultipartUpload,
 } from "@/lib/storage/multipart";
 
 export async function POST(req: NextRequest) {
@@ -16,24 +16,19 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { action, key, uploadId, fileName, fileType, partNumber, parts } =
-      body;
+    const { action, key, uploadId, partNumber, parts } = body;
 
     switch (action) {
       case "initiate": {
         // TODO: Validate file type and size limits
-        if (!fileName || !fileType) {
+        if (!key) {
           return NextResponse.json(
-            { error: "Missing required fields: fileName, fileType" },
+            { error: "Missing required field: key" },
             { status: 400 }
           );
         }
 
-        const result = await initiateMultipartUpload({
-          userId: user.id,
-          fileName,
-          fileType,
-        });
+        const result = await initiateMultipartUpload({ key });
 
         return NextResponse.json({
           uploadId: result.uploadId,

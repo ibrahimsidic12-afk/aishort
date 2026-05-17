@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
     }
 
     // TODO: Validate file size against user's plan limits
-    if (!validateFileSize(fileSize, user.plan)) {
+    const maxSize = user.plan === "FREE" ? 2e9 : user.plan === "PRO" ? 10e9 : 50e9;
+    if (!validateFileSize(fileSize, maxSize)) {
       return NextResponse.json(
         { error: "File size exceeds plan limit" },
         { status: 400 }
@@ -40,17 +41,13 @@ export async function POST(req: NextRequest) {
 
     // TODO: Check user's upload quota
     // TODO: Generate unique storage key
-    const { url, key, expiresAt } = await generatePresignedUrl({
-      userId: user.id,
-      fileName,
-      fileType,
-      fileSize,
+    const { uploadUrl, key } = await generatePresignedUrl({
+      key: `${user.id}/${fileName}`,
     });
 
     return NextResponse.json({
-      uploadUrl: url,
+      uploadUrl,
       key,
-      expiresAt,
     });
   } catch (error) {
     console.error("[UPLOAD_PRESIGNED]", error);

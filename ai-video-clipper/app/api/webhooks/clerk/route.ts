@@ -35,8 +35,10 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case "user.created": {
         // TODO: Create user record in database
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const eventData = event.data as any;
         const { id, email_addresses, first_name, last_name, image_url } =
-          event.data;
+          eventData;
 
         await db.user.create({
           data: {
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest) {
             email: email_addresses[0]?.email_address,
             name: `${first_name || ""} ${last_name || ""}`.trim(),
             avatarUrl: image_url,
-            plan: "free",
+            plan: "FREE",
           },
         });
         break;
@@ -52,8 +54,10 @@ export async function POST(req: NextRequest) {
 
       case "user.updated": {
         // TODO: Sync user profile changes
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const eventData = event.data as any;
         const { id, email_addresses, first_name, last_name, image_url } =
-          event.data;
+          eventData;
 
         await db.user.update({
           where: { clerkId: id },
@@ -67,13 +71,13 @@ export async function POST(req: NextRequest) {
       }
 
       case "user.deleted": {
-        // TODO: Handle user deletion (soft delete, cleanup resources)
-        const { id } = event.data;
-
-        await db.user.update({
-          where: { clerkId: id },
-          data: { deletedAt: new Date() },
-        });
+        // TODO: Handle user deletion (hard delete or soft delete via user-level flag)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { id } = (event as any).data;
+        const exists = await db.user.findFirst({ where: { clerkId: id } });
+        if (exists) {
+          await db.user.delete({ where: { clerkId: id } });
+        }
         break;
       }
 

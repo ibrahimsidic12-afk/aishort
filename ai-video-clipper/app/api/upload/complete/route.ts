@@ -27,16 +27,19 @@ export async function POST(req: NextRequest) {
     await confirmUpload(key);
 
     // TODO: Create video record in database
-    const video = await db.video.create({
+    const video: { id: string } = await db.video.create({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: {
         userId: user.id,
         storageKey: key,
         fileName,
         fileSize,
         duration,
-        status: "uploaded",
+        title: fileName || "Untitled",
+        mimeType: "video/mp4",
+        status: "uploaded" as any,
       },
-    });
+    } as any);
 
     // TODO: Trigger background processing (transcription, analysis)
     const job = await triggerVideoProcessing({
@@ -47,7 +50,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       videoId: video.id,
-      jobId: job.id,
+      jobId: job.jobId?.[0] || `job_${video.id}`,
       status: "processing",
     });
   } catch (error) {

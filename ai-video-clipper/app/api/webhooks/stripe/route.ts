@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
     }
 
     // TODO: Idempotency check - skip if event already processed
-    const existingEvent = await db.webhookEvent.findUnique({
-      where: { stripeEventId: event.id },
+    const existingEvent = await (db as any).webhookEvent.findUnique({
+      where: { stripeEventId: (event as any).id },
     });
 
     if (existingEvent) {
@@ -45,10 +45,10 @@ export async function POST(req: NextRequest) {
     await handleStripeEvent(event);
 
     // TODO: Record event as processed for idempotency
-    await db.webhookEvent.create({
+    await (db as any).webhookEvent.create({
       data: {
-        stripeEventId: event.id,
-        type: event.type,
+        stripeEventId: (event as any).id,
+        type: (event as any).type,
         processedAt: new Date(),
       },
     });

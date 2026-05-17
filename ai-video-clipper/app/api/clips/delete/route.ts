@@ -32,7 +32,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     // TODO: Delete clip assets from storage (video file, thumbnail, captions)
-    await deleteClipAssets(clip.storageKey);
+    await deleteClipAssets({ storageKey: clip.storageKey });
 
     // TODO: Delete clip record from database
     await db.clip.delete({ where: { id: clipId } });

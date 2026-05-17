@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Clip not found" }, { status: 404 });
     }
 
-    const captions = await getCaptions(clipId);
+    const captions = await getCaptions({ clipId });
 
     return NextResponse.json({
       clipId,
@@ -76,9 +76,9 @@ export async function PUT(req: NextRequest) {
     }
 
     // TODO: Validate caption segments format
-    const updated = await updateCaptions(clipId, {
-      segments: captions,
-      style: style || {},
+    const updated = await updateCaptions({
+      clipId,
+      captions: { segments: captions, style: style || {} },
     });
 
     return NextResponse.json({

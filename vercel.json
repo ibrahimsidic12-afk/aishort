@@ -1,0 +1,7 @@
+{
+  "buildCommand": "cd ai-video-clipper && npm run build",
+  "outputDirectory": "ai-video-clipper/.next",
+  "installCommand": "cd ai-video-clipper && npm install",
+  "framework": "nextjs",
+  "rootDirectory": "ai-video-clipper"
+}

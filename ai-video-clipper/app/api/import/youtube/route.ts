@@ -61,8 +61,15 @@ export async function POST(req: NextRequest) {
       }
     } catch (dbError) {
       console.error("[IMPORT_YOUTUBE] DB error:", dbError);
+      const errMsg = dbError instanceof Error ? dbError.message : String(dbError);
+      const isTableMissing = errMsg.includes("does not exist") || errMsg.includes("relation") || errMsg.includes("P2021");
       return NextResponse.json(
-        { error: "Database connection failed. Please ensure DATABASE_URL is configured.", code: "DB_ERROR" },
+        { 
+          error: isTableMissing 
+            ? "Database tables not found. Please run 'npx prisma db push' to set up the schema." 
+            : "Database connection failed. Please ensure DATABASE_URL is configured correctly.", 
+          code: "DB_ERROR" 
+        },
         { status: 503 }
       );
     }

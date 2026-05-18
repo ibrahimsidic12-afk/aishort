@@ -1,0 +1,48 @@
+# Copy these environment variables to Vercel Dashboard
+# Go to: Project Settings > Environment Variables
+
+# App Configuration
+NEXT_PUBLIC_APP_URL=https://your-project-name.vercel.app
+
+# Clerk Authentication  
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_a25vd24tY2ljYWRhLTYzLmNsZXJrLmFjY291bnRzLmRldiQ
+CLERK_SECRET_KEY=sk_test_LEzsxkSr1xb4UzudLv2lAo6toMz5zVUNRBXOpIBbqV
+
+# Database
+DATABASE_URL=postgresql://neondb_owner:npg_brMgLfH6UWj1@ep-proud-salad-apbi7cn4-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+
+# Cloudflare R2 Storage
+S3_PROVIDER=r2
+S3_BUCKET=aiclipping
+S3_REGION=auto
+S3_ENDPOINT=https://a6d39622d6964cef2c100a586d03b610.r2.cloudflarestorage.com
+S3_ACCESS_KEY=2d2ce9dc609473a6c7595a7663f73e40
+S3_SECRET_KEY=fda291f8877aaeee2107c65fe924070d3cbd690c0f79227f06327157f9522706
+S3_PUBLIC_URL=https://a6d39622d6964cef2c100a586d03b610.r2.cloudflarestorage.com/aiclipping
+
+# R2 Alternative Names
+R2_ACCOUNT_ID=a6d39622d6964cef2c100a586d03b610
+R2_ACCESS_KEY_ID=2d2ce9dc609473a6c7595a7663f73e40
+R2_SECRET_ACCESS_KEY=fda291f8877aaeee2107c65fe924070d3cbd690c0f79227f06327157f9522706
+R2_BUCKET_NAME=aiclipping
+R2_ENDPOINT=https://a6d39622d6964cef2c100a586d03b610.r2.cloudflarestorage.com
+R2_PUBLIC_URL=https://a6d39622d6964cef2c100a586d03b610.r2.cloudflarestorage.com/aiclipping
+
+# Upstash Redis & QStash
+UPSTASH_REDIS_REST_URL=https://hip-buffalo-127199.upstash.io
+UPSTASH_REDIS_REST_TOKEN=gQAAAAAAAfDfAAIgcDJlOGM2NTMyZThmNzU0ZTdkYjgzYWExNzAwZDcxOWI3Yg
+QSTASH_TOKEN=eyJVc2VySUQiOiIyNzY0NjNkMS05NmRiLTRjZjgtODdkNy1jYTdlYzI4NGM2ZTYiLCJQYXNzd29yZCI6IjcyNmY1NzAxNTE0ZDQ0ZmI5MDE2NDRiOWEwZmZmODVmIn0=
+
+# AI Services
+REGOLO_API_KEY=sk-3RGVGtCYcIXXMGkqQgVW7A
+
+# Transcription
+DEEPGRAM_API_KEY=227f747d516bfdb0cb1125bc0f999d54bf986fe8
+
+# Security
+ENCRYPTION_KEY=487a6a64969ff1cba5223cf156442c2c1e515e33b3d361e77336a118d86caa01
+
+# IMPORTANT: Set these for ALL environments:
+# ✅ Production
+# ✅ Preview  
+# ✅ Development

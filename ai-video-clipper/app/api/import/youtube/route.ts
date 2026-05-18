@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { auth } from "@clerk/nextjs/server";
 
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
@@ -24,11 +25,21 @@ function cleanTitle(title: string): string {
 
 export async function POST(req: NextRequest) {
   try {
+    // First check if user is authenticated via Clerk
+    const { userId: clerkUserId } = await auth();
+    if (!clerkUserId) {
+      return NextResponse.json(
+        { error: "Please sign in to import videos.", code: "UNAUTHORIZED" },
+        { status: 401 }
+      );
+    }
+
+    // Then get the full user from DB (creates if not exists)
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
-        { error: "Unauthorized", code: "UNAUTHORIZED" },
-        { status: 401 }
+        { error: "Unable to load your account. Please try again or contact support.", code: "ACCOUNT_ERROR" },
+        { status: 503 }
       );
     }
 

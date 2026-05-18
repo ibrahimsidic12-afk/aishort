@@ -209,7 +209,7 @@ Return JSON:
 
   return {
     frameIndex: Math.min(Math.max(parsed.frame_index, 0), input.frames.length - 1),
-    reason: parsed.reason,
+    reason: parsed.reason ?? "Default selection",
   };
 }
 

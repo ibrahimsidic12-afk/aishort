@@ -47,6 +47,11 @@ interface QuotaCheckResult {
   used?: number;
 }
 
+// Admin emails that bypass all quota limits
+const ADMIN_EMAILS = [
+  "oraclemaster41@gmail.com",
+];
+
 /**
  * Check if a user has remaining quota for a specific action
  */
@@ -55,11 +60,20 @@ export async function checkQuota(
   actionType: UsageType
 ): Promise<QuotaCheckResult> {
   try {
-  // Get user's plan
+  // Get user's plan and email
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { plan: true, credits: true },
+    select: { plan: true, credits: true, email: true },
   });
+
+  if (!user) {
+    return { allowed: false, reason: "User not found" };
+  }
+
+  // Admin bypass - unlimited access
+  if (ADMIN_EMAILS.includes(user.email)) {
+    return { allowed: true, remaining: 999999, limit: 999999, used: 0 };
+  }
 
   if (!user) {
     return { allowed: false, reason: "User not found" };
@@ -188,10 +202,24 @@ export async function getUserUsageStats(userId: string) {
   try {
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { plan: true, credits: true },
+    select: { plan: true, credits: true, email: true },
   });
 
   if (!user) return null;
+
+  // Admin bypass - show unlimited
+  if (ADMIN_EMAILS.includes(user.email)) {
+    return {
+      plan: "BUSINESS",
+      credits: 999999,
+      usage: {
+        videos: { used: 0, limit: 999999 },
+        clips: { used: 0, limit: 999999 },
+        publishes: { used: 0, limit: 999999 },
+      },
+      limits: PLAN_LIMITS.BUSINESS,
+    };
+  }
 
   const limits = PLAN_LIMITS[user.plan] || PLAN_LIMITS.FREE;
 

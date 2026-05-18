@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { checkQuota, recordUsage } from "@/lib/quota";
 import { createProcessingJob, sendJob } from "@/lib/jobs/queue";
 
-const YOUTUBE_URL_REGEX = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:\S*)?$/;
+const YOUTUBE_URL_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
 
 const ImportYouTubeSchema = z.object({
   url: z.string().min(1, "YouTube URL is required"),

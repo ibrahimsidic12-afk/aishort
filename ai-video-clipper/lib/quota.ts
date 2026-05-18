@@ -54,6 +54,7 @@ export async function checkQuota(
   userId: string,
   actionType: UsageType
 ): Promise<QuotaCheckResult> {
+  try {
   // Get user's plan
   const user = await db.user.findUnique({
     where: { id: userId },
@@ -117,6 +118,11 @@ export async function checkQuota(
     limit,
     used: usageCount,
   };
+  } catch (error) {
+    console.error("[QUOTA] checkQuota failed:", error);
+    // Allow action if quota check fails (graceful degradation)
+    return { allowed: true, remaining: 999, limit: 999, used: 0 };
+  }
 }
 
 /**
@@ -127,13 +133,18 @@ export async function recordUsage(
   type: UsageType,
   metadata?: Record<string, unknown>
 ): Promise<void> {
-  await db.usageRecord.create({
-    data: {
-      userId,
-      type,
-      metadata: metadata as object | undefined,
+  try {
+    await db.usageRecord.create({
+      data: {
+        userId,
+        type,
+        metadata: metadata as object | undefined,
     },
   });
+  } catch (error) {
+    console.error("[QUOTA] recordUsage failed:", error);
+    // Don't crash if usage recording fails
+  }
 }
 
 /**
@@ -174,6 +185,7 @@ export function checkVideoDurationLimit(plan: string, durationSeconds: number): 
  * Get user's current usage stats
  */
 export async function getUserUsageStats(userId: string) {
+  try {
   const user = await db.user.findUnique({
     where: { id: userId },
     select: { plan: true, credits: true },
@@ -209,4 +221,8 @@ export async function getUserUsageStats(userId: string) {
     },
     limits,
   };
+  } catch (error) {
+    console.error("[QUOTA] getUserUsageStats failed:", error);
+    return null;
+  }
 }

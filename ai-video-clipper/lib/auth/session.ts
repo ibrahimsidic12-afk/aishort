@@ -13,40 +13,13 @@ export interface SessionUser {
 }
 
 export async function getCurrentUser(): Promise<SessionUser | null> {
-  const { userId } = await auth();
-  if (!userId) return null;
+  try {
+    const { userId } = await auth();
+    if (!userId) return null;
 
-  // Try to find existing user in DB
-  let user = await db.user.findUnique({
-    where: { clerkId: userId },
-    select: {
-      id: true,
-      clerkId: true,
-      email: true,
-      name: true,
-      avatarUrl: true,
-      plan: true,
-      credits: true,
-    },
-  });
-
-  // If user doesn't exist in DB yet (webhook hasn't fired), create them
-  if (!user) {
-    const clerkUser = await currentUser();
-    if (!clerkUser) return null;
-
-    const email = clerkUser.emailAddresses?.[0]?.emailAddress || "";
-    const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
-
-    user = await db.user.create({
-      data: {
-        clerkId: userId,
-        email,
-        name,
-        avatarUrl: clerkUser.imageUrl || null,
-        plan: "FREE",
-        credits: 10,
-      },
+    // Try to find existing user in DB
+    let user = await db.user.findUnique({
+      where: { clerkId: userId },
       select: {
         id: true,
         clerkId: true,
@@ -57,7 +30,39 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
         credits: true,
       },
     });
-  }
 
-  return { ...user, connectedAccounts: {} };
+    // If user doesn't exist in DB yet (webhook hasn't fired), create them
+    if (!user) {
+      const clerkUser = await currentUser();
+      if (!clerkUser) return null;
+
+      const email = clerkUser.emailAddresses?.[0]?.emailAddress || "";
+      const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
+
+      user = await db.user.create({
+        data: {
+          clerkId: userId,
+          email,
+          name,
+          avatarUrl: clerkUser.imageUrl || null,
+          plan: "FREE",
+          credits: 10,
+        },
+        select: {
+          id: true,
+          clerkId: true,
+          email: true,
+          name: true,
+          avatarUrl: true,
+          plan: true,
+          credits: true,
+        },
+      });
+    }
+
+    return { ...user, connectedAccounts: {} };
+  } catch (error) {
+    console.error("[AUTH] getCurrentUser failed:", error);
+    return null;
+  }
 }

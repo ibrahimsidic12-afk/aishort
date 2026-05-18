@@ -24,7 +24,7 @@ const isPublicHomePage = createRouteMatcher(["/"]);
 const isApiRoute = createRouteMatcher(["/api(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
-  const { userId } = auth();
+  const { userId, protect } = auth();
 
   // Redirect authenticated users away from auth pages and home to dashboard
   if (userId && (isAuthRoute(req) || isPublicHomePage(req))) {
@@ -32,9 +32,9 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.redirect(dashboardUrl);
   }
 
-  // Protect dashboard routes
+  // Protect dashboard routes - redirects unauthenticated users to sign-in
   if (isProtectedRoute(req)) {
-    auth().protect();
+    protect();
   }
 
   // Apply rate limiting to API routes

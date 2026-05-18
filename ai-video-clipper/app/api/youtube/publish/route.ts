@@ -32,14 +32,24 @@ export async function POST(req: NextRequest) {
       scheduledAt: scheduledAt || null,
     } as any);
 
-    // TODO: Update publish record in database
-    await (db as any).publication.update({
-      where: { id: youtubeVideoId },
-      data: {
-        status: "published",
-        publishedAt: new Date(),
-      },
+    // TODO: Update publish record in database if publication exists
+    // Note: In production, we'd look up the publication by externalId
+    // For now, create a new one if the clip exists
+    const clip = await db.clip.findFirst({
+      where: { videoId: youtubeVideoId, userId: user.id },
     });
+    
+    if (clip) {
+      await db.publication.create({
+        data: {
+          clipId: clip.id,
+          platform: "YOUTUBE",
+          status: "PUBLISHED",
+          externalId: youtubeVideoId,
+          publishedAt: new Date(),
+        },
+      });
+    }
 
     return NextResponse.json({
       youtubeVideoId,

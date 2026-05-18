@@ -45,13 +45,13 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        const url = await generatePartPresignedUrl({
+        const result = await generatePartPresignedUrl({
           key,
           uploadId,
           partNumber,
         });
 
-        return NextResponse.json({ url });
+        return NextResponse.json({ url: result.url });
       }
 
       case "complete": {

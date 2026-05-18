@@ -41,11 +41,11 @@ export async function POST(req: NextRequest) {
     });
 
     // TODO: Store publish record in database
-    await (db as any).publication.create({
+    await db.publication.create({
       data: {
         clipId,
-        userId: user.id,
         platform: "TIKTOK",
+        status: "PENDING",
       },
     });
 

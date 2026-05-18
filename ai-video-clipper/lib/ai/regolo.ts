@@ -12,15 +12,30 @@ import {
 import { z } from "zod";
 
 /**
- * Regolo AI Client
+ * Regolo AI Client (lazy-initialized)
  * OpenAI-compatible client configured for Regolo API
+ * Uses lazy initialization to avoid crashing at build time when env vars aren't set
  */
-export const regolo = new OpenAI({
-  apiKey: process.env.REGOLO_API_KEY,
-  baseURL: process.env.REGOLO_BASE_URL || "https://api.regolo.ai/v1",
-  defaultHeaders: {
-    "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-    "X-Title": "AI Video Clipper",
+let _regolo: OpenAI | null = null;
+
+export function getRegolo(): OpenAI {
+  if (!_regolo) {
+    _regolo = new OpenAI({
+      apiKey: process.env.REGOLO_API_KEY || "placeholder",
+      baseURL: process.env.REGOLO_BASE_URL || "https://api.regolo.ai/v1",
+      defaultHeaders: {
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+        "X-Title": "AI Video Clipper",
+      },
+    });
+  }
+  return _regolo;
+}
+
+/** @deprecated Use getRegolo() instead — kept for backward compatibility */
+export const regolo = new Proxy({} as OpenAI, {
+  get(_, prop) {
+    return (getRegolo() as any)[prop];
   },
 });
 

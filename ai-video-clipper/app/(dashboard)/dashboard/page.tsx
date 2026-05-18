@@ -1,12 +1,31 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { getUserUsageStats } from "@/lib/quota";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    // Don't redirect to /login here — middleware already protects this route.
+    // If getCurrentUser returns null, it means DB is unavailable.
+    // Show a minimal fallback instead of causing a redirect loop.
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
+        <div className="rounded-2xl bg-muted p-6">
+          <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-10 w-10 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M12 9v2m0 4h.01M5.07 19H19a2 2 0 0 0 1.75-2.75L13.75 4a2 2 0 0 0-3.5 0L3.32 16.25A2 2 0 0 0 5.07 19Z" />
+          </svg>
+        </div>
+        <h2 className="mt-4 text-lg font-semibold">Setting up your account</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Please wait a moment while we connect to the database. If this persists, contact support.
+        </p>
+        <Link href="/dashboard" className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+          Refresh
+        </Link>
+      </div>
+    );
+  }
 
   // Fetch real stats in parallel
   let videoCount = 0;

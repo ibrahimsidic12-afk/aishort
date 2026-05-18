@@ -1,6 +1,5 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { redirect } from "next/navigation";
 import { ClipCard } from "@/components/video/clip-card";
 import { ClipsFilters } from "@/components/clips/clips-filters";
 import { ClipsPagination } from "@/components/clips/clips-pagination";
@@ -19,7 +18,14 @@ const PAGE_SIZE = 12;
 
 export default async function ClipsPage({ searchParams }: ClipsPageProps) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">My Clips</h1>
+        <p className="text-muted-foreground">Loading your account...</p>
+      </div>
+    );
+  }
 
   const params = await searchParams;
   const status = params.status || "all";

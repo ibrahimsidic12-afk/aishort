@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 
 interface VideoDetailPageProps {
@@ -17,7 +17,14 @@ const STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string; lab
 
 export default async function VideoDetailPage({ params }: VideoDetailPageProps) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold">Video Details</h1>
+        <p className="text-muted-foreground">Loading your account...</p>
+      </div>
+    );
+  }
 
   const { id } = await params;
 

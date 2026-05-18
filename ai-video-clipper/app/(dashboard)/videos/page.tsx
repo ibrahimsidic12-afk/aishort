@@ -1,6 +1,5 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 
 interface VideosPageProps {
@@ -22,7 +21,14 @@ const STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string }> =
 
 export default async function VideosPage({ searchParams }: VideosPageProps) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold sm:text-3xl">My Videos</h1>
+        <p className="text-muted-foreground">Loading your account...</p>
+      </div>
+    );
+  }
 
   const params = await searchParams;
   const statusFilter = params.status || "all";

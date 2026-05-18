@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ClipDetailClient } from "@/components/clips/clip-detail-client";
 
@@ -10,7 +10,14 @@ interface ClipDetailPageProps {
 
 export default async function ClipDetailPage({ params }: ClipDetailPageProps) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold">Clip Details</h1>
+        <p className="text-muted-foreground">Loading your account...</p>
+      </div>
+    );
+  }
 
   const { id } = await params;
 

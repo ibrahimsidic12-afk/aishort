@@ -36,13 +36,13 @@ export default async function ClipsPage({ searchParams }: ClipsPageProps) {
 
   if (search) {
     where.OR = [
-      { title: { contains: search, mode: "insensitive" } },
+      { title: { contains: search, mode: "insensitive" as const } },
       { tags: { has: search } },
     ];
   }
 
-  // Build sort order
-  let orderBy: Record<string, string>;
+  // Build sort order (use createdAt as default to avoid null ordering issues)
+  let orderBy: Record<string, unknown>;
   switch (sort) {
     case "date":
       orderBy = { createdAt: "desc" };
@@ -51,28 +51,38 @@ export default async function ClipsPage({ searchParams }: ClipsPageProps) {
       orderBy = { duration: "desc" };
       break;
     case "virality":
-      orderBy = { viralityScore: "desc" };
+      orderBy = { viralityScore: { sort: "desc", nulls: "last" } };
       break;
     case "score":
+      orderBy = { score: { sort: "desc", nulls: "last" } };
+      break;
     default:
-      orderBy = { score: "desc" };
+      orderBy = { createdAt: "desc" };
       break;
   }
 
   // Fetch clips with pagination
-  const [clips, totalCount] = await Promise.all([
-    db.clip.findMany({
-      where: where as any,
-      orderBy: orderBy as any,
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      include: {
-        video: { select: { title: true, id: true } },
-        _count: { select: { publications: true } },
-      },
-    }),
-    db.clip.count({ where: where as any }),
-  ]);
+  let clips: any[] = [];
+  let totalCount = 0;
+
+  try {
+    [clips, totalCount] = await Promise.all([
+      db.clip.findMany({
+        where: where as any,
+        orderBy: orderBy as any,
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+        include: {
+          video: { select: { title: true, id: true } },
+          _count: { select: { publications: true } },
+        },
+      }),
+      db.clip.count({ where: where as any }),
+    ]);
+  } catch (error) {
+    console.error("[CLIPS_PAGE] Database query failed:", error);
+    // Return empty state gracefully instead of crashing
+  }
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 

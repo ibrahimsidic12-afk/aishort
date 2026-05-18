@@ -9,38 +9,50 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   // Fetch real stats in parallel
-  const [videoCount, clipCount, publishedCount, recentVideos, recentJobs, usageStats] =
-    await Promise.all([
-      db.video.count({ where: { userId: user.id } }),
-      db.clip.count({ where: { userId: user.id } }),
-      db.clip.count({ where: { userId: user.id, status: "PUBLISHED" } }),
-      db.video.findMany({
-        where: { userId: user.id },
-        orderBy: { createdAt: "desc" },
-        take: 5,
-        select: {
-          id: true,
-          title: true,
-          status: true,
-          createdAt: true,
-          duration: true,
-          _count: { select: { clips: true } },
-        },
-      }),
-      db.job.findMany({
-        where: { userId: user.id },
-        orderBy: { createdAt: "desc" },
-        take: 5,
-        select: {
-          id: true,
-          type: true,
-          status: true,
-          createdAt: true,
-          completedAt: true,
-        },
-      }),
-      getUserUsageStats(user.id),
-    ]);
+  let videoCount = 0;
+  let clipCount = 0;
+  let publishedCount = 0;
+  let recentVideos: any[] = [];
+  let recentJobs: any[] = [];
+  let usageStats: any = null;
+
+  try {
+    [videoCount, clipCount, publishedCount, recentVideos, recentJobs, usageStats] =
+      await Promise.all([
+        db.video.count({ where: { userId: user.id } }),
+        db.clip.count({ where: { userId: user.id } }),
+        db.clip.count({ where: { userId: user.id, status: "PUBLISHED" } }),
+        db.video.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: "desc" },
+          take: 5,
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            createdAt: true,
+            duration: true,
+            _count: { select: { clips: true } },
+          },
+        }),
+        db.job.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: "desc" },
+          take: 5,
+          select: {
+            id: true,
+            type: true,
+            status: true,
+            createdAt: true,
+            completedAt: true,
+          },
+        }),
+        getUserUsageStats(user.id),
+      ]);
+  } catch (error) {
+    console.error("[DASHBOARD] Database query failed:", error);
+    // Continue with defaults (zeros) instead of crashing
+  }
 
   const stats = [
     {
@@ -222,7 +234,7 @@ export default async function DashboardPage() {
                 <JobIcon type={job.type} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">
-                    {job.type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase())}
+                    {job.type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {new Date(job.createdAt).toLocaleDateString()}

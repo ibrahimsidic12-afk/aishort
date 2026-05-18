@@ -33,18 +33,25 @@ export default async function VideosPage({ searchParams }: VideosPageProps) {
     where.status = statusFilter.toUpperCase();
   }
 
-  const [videos, totalCount] = await Promise.all([
-    db.video.findMany({
-      where: where as any,
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      include: {
-        _count: { select: { clips: true, jobs: true } },
-      },
-    }),
-    db.video.count({ where: where as any }),
-  ]);
+  let videos: any[] = [];
+  let totalCount = 0;
+
+  try {
+    [videos, totalCount] = await Promise.all([
+      db.video.findMany({
+        where: where as any,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+        include: {
+          _count: { select: { clips: true, jobs: true } },
+        },
+      }),
+      db.video.count({ where: where as any }),
+    ]);
+  } catch (error) {
+    console.error("[VIDEOS_PAGE] Database query failed:", error);
+  }
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 

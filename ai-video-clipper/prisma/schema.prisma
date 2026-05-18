@@ -23,7 +23,6 @@ model User {
   videos        Video[]
   clips         Clip[]
   jobs          Job[]
-  subscription  Subscription?
   usageRecords  UsageRecord[]
   teamMembers   TeamMember[]
   youtubeTokens YouTubeToken?
@@ -202,25 +201,7 @@ model Job {
   @@map("jobs")
 }
 
-// ─── Billing ─────────────────────────────────────────────────────
-
-model Subscription {
-  id                   String             @id @default(cuid())
-  userId               String             @unique
-  stripeCustomerId     String             @unique
-  stripeSubscriptionId String?            @unique
-  stripePriceId        String?
-  status               SubscriptionStatus @default(INACTIVE)
-  currentPeriodStart   DateTime?
-  currentPeriodEnd     DateTime?
-  cancelAtPeriodEnd    Boolean            @default(false)
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("subscriptions")
-}
+// ─── Usage Tracking ──────────────────────────────────────────────
 
 model UsageRecord {
   id        String    @id @default(cuid())
@@ -303,13 +284,6 @@ enum TranscriptProvider {
   ASSEMBLYAI
 }
 
-enum SubscriptionStatus {
-  ACTIVE
-  INACTIVE
-  PAST_DUE
-  CANCELLED
-}
-
 enum UsageType {
   VIDEO_UPLOAD
   TRANSCRIPTION
@@ -322,14 +296,14 @@ enum UsageType {
 
 model WebhookEvent {
   id             String    @id @default(cuid())
-  stripeEventId  String    @unique
+  eventId        String    @unique
   type           String
-  provider       String    @default("stripe")
+  provider       String    @default("clerk")
   processedAt    DateTime  @default(now())
   payload        Json?
 
   @@map("webhook_events")
-  @@index([stripeEventId])
+  @@index([eventId])
   @@index([provider])
 }
 

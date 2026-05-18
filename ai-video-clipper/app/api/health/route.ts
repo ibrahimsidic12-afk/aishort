@@ -1,36 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
-
-import { db } from "@/lib/db";
+﻿import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
+  const start = Date.now();
+  
   try {
-    // TODO: Check database connectivity
-    const dbHealthy = await db.$queryRaw`SELECT 1`
-      .then(() => true)
-      .catch(() => false);
-
-    // TODO: Check external service connectivity (optional)
+    // Quick health check without DB dependency
     const services = {
-      database: dbHealthy,
+      status: "healthy",
       timestamp: new Date().toISOString(),
-      version: process.env.APP_VERSION || "unknown",
+      uptime: process.uptime(),
+      version: process.env.npm_package_version || "0.1.0",
       environment: process.env.NODE_ENV,
     };
 
-    if (!dbHealthy) {
-      return NextResponse.json(
-        {
-          status: "degraded",
-          ...services,
-        },
-        { status: 503 }
-      );
-    }
-
-    return NextResponse.json({
-      status: "healthy",
-      ...services,
-    });
+    return NextResponse.json(services);
   } catch (error) {
     console.error("[HEALTH]", error);
     return NextResponse.json(

@@ -9,7 +9,6 @@ export interface SessionUser {
   avatarUrl: string | null;
   plan: "FREE" | "PRO" | "BUSINESS";
   credits: number;
-  stripeCustomerId: string | null;
   connectedAccounts: Record<string, unknown>;
 }
 
@@ -30,5 +29,5 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     },
   });
   if (!user) return null;
-  return { ...user, stripeCustomerId: null, connectedAccounts: {} };
+  return { ...user, connectedAccounts: {} };
 }

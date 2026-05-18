@@ -34,16 +34,20 @@ export async function POST(req: NextRequest) {
     // TODO: Handle different Clerk event types
     switch (event.type) {
       case "user.created": {
-        // TODO: Create user record in database
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const eventData = event.data as any;
+        const eventData = event.data as {
+          id: string;
+          email_addresses: Array<{ email_address: string }>;
+          first_name: string;
+          last_name: string;
+          image_url: string;
+        };
         const { id, email_addresses, first_name, last_name, image_url } =
           eventData;
 
         await db.user.create({
           data: {
             clerkId: id,
-            email: email_addresses[0]?.email_address,
+            email: email_addresses[0]?.email_address || "",
             name: `${first_name || ""} ${last_name || ""}`.trim(),
             avatarUrl: image_url,
             plan: "FREE",
@@ -53,16 +57,20 @@ export async function POST(req: NextRequest) {
       }
 
       case "user.updated": {
-        // TODO: Sync user profile changes
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const eventData = event.data as any;
+        const eventData = event.data as {
+          id: string;
+          email_addresses: Array<{ email_address: string }>;
+          first_name: string;
+          last_name: string;
+          image_url: string;
+        };
         const { id, email_addresses, first_name, last_name, image_url } =
           eventData;
 
         await db.user.update({
           where: { clerkId: id },
           data: {
-            email: email_addresses[0]?.email_address,
+            email: email_addresses[0]?.email_address || "",
             name: `${first_name || ""} ${last_name || ""}`.trim(),
             avatarUrl: image_url,
           },
@@ -71,9 +79,7 @@ export async function POST(req: NextRequest) {
       }
 
       case "user.deleted": {
-        // TODO: Handle user deletion (hard delete or soft delete via user-level flag)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { id } = (event as any).data;
+        const { id } = event.data as { id: string };
         const exists = await db.user.findFirst({ where: { clerkId: id } });
         if (exists) {
           await db.user.delete({ where: { clerkId: id } });

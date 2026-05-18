@@ -1,22 +1,15 @@
-export function validateFileType(fileName: string): string | null {
+export function validateFileType(mimeType: string): boolean {
   const allowed = [
     "video/mp4",
-    "video/webm",
+    "video/webm", 
     "video/avi",
     "video/mov",
     "video/quicktime",
+    "video/x-msvideo"
   ];
-  const ext = fileName.split(".").pop()?.toLowerCase();
-  const allowedExts = ["mp4", "webm", "avi", "mov"];
-  if (!ext || !allowedExts.includes(ext)) {
-    return `file type "${ext}" is not supported`;
-  }
-  return null;
+  return allowed.includes(mimeType);
 }
 
-export function validateFileSize(size: number, maxBytes = 4 * 1024 * 1024 * 1024): string | null {
-  if (size > maxBytes) {
-    return `file size exceeds ${maxBytes} bytes`;
-  }
-  return null;
+export function validateFileSize(size: number, maxBytes: number): boolean {
+  return size <= maxBytes;
 }

@@ -10,7 +10,6 @@ const navItems = [
   { href: "/clips", label: "Clips", icon: "✂️" },
   { href: "/review", label: "Review", icon: "👁️" },
   { href: "/analytics", label: "Analytics", icon: "📈" },
-  { href: "/billing", label: "Billing", icon: "💳" },
   { href: "/team", label: "Team", icon: "👥" },
   { href: "/settings", label: "Settings", icon: "⚙️" },
 ];

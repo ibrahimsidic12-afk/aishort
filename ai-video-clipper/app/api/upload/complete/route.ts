@@ -28,7 +28,6 @@ export async function POST(req: NextRequest) {
 
     // TODO: Create video record in database
     const video: { id: string } = await db.video.create({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: {
         userId: user.id,
         storageKey: key,

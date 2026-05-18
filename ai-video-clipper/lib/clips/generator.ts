@@ -1,4 +1,5 @@
 import { prisma } from "../db/prisma";
+import { regolo } from "../ai/regolo";
 
 export async function generateClips(input: {
   videoId: string;
@@ -12,12 +13,138 @@ export async function generateClips(input: {
     prompt?: string;
   };
 }): Promise<{ id: string; status: string; clipIds: string[] }> {
-  console.warn("[CLIPS] generateClips: stub");
-  const clips = await prisma.clip.createMany({
-    data: [],
-    skipDuplicates: true,
+  const { videoId, userId, options = {} } = input;
+  const { maxClips = 5, minDuration = 15, maxDuration = 60 } = options;
+
+  // Get video and transcript
+  const video = await prisma.video.findUnique({
+    where: { id: videoId },
+    include: { transcript: true }
   });
-  return { id: `job_${input.videoId}`, status: "queued", clipIds: [] };
+
+  if (!video || !video.transcript) {
+    throw new Error("Video or transcript not found");
+  }
+
+  // Create job
+  const job = await prisma.job.create({
+    data: {
+      userId,
+      videoId,
+      type: "CLIP_GENERATION",
+      status: "PROCESSING",
+    }
+  });
+
+  try {
+    // Use AI to identify interesting segments
+    const segments = await identifyClipSegments(
+      video.transcript.content,
+      video.duration || 0,
+      { maxClips, minDuration, maxDuration }
+    );
+
+    // Create clip records
+    const clips = await Promise.all(
+      segments.map(async (segment: ClipSegment, index: number) => {
+        return prisma.clip.create({
+          data: {
+            userId,
+            videoId,
+            title: segment.title || `Clip ${index + 1}`,
+            description: segment.description,
+            startTime: segment.startTime,
+            endTime: segment.endTime,
+            duration: segment.endTime - segment.startTime,
+            status: "PENDING",
+            score: segment.score,
+            viralityScore: segment.viralityScore,
+            tags: segment.tags || [],
+          }
+        });
+      })
+    );
+
+    // Update job
+    await prisma.job.update({
+      where: { id: job.id },
+      data: {
+        status: "COMPLETED",
+        progress: 100,
+        result: { clipIds: clips.map(c => c.id) }
+      }
+    });
+
+    return {
+      id: job.id,
+      status: "completed",
+      clipIds: clips.map(c => c.id)
+    };
+
+  } catch (error) {
+    await prisma.job.update({
+      where: { id: job.id },
+      data: {
+        status: "FAILED",
+        error: error instanceof Error ? error.message : "Unknown error"
+      }
+    });
+    throw error;
+  }
+}
+
+interface ClipSegment {
+  startTime: number;
+  endTime: number;
+  title?: string;
+  description?: string;
+  score?: number;
+  viralityScore?: number;
+  tags?: string[];
+}
+
+async function identifyClipSegments(
+  transcript: string,
+  videoDuration: number,
+  options: { maxClips: number; minDuration: number; maxDuration: number }
+): Promise<ClipSegment[]> {
+  const prompt = `Analyze this video transcript and identify the ${options.maxClips} most engaging segments for short-form content.
+
+Transcript: ${transcript}
+
+Video Duration: ${videoDuration} seconds
+
+Requirements:
+- Each segment should be ${options.minDuration}-${options.maxDuration} seconds
+- Focus on moments with high engagement potential
+- Look for: emotional peaks, surprising facts, actionable tips, funny moments
+- Provide start/end times, titles, descriptions, and virality scores (0-100)
+
+Return JSON array with this structure:
+[{
+  "startTime": number,
+  "endTime": number, 
+  "title": "string",
+  "description": "string",
+  "score": number,
+  "viralityScore": number,
+  "tags": ["string"]
+}]`;
+
+  const response = await regolo.chat.completions.create({
+    model: "gpt-4o",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.7,
+  });
+
+  const content = response.choices[0]?.message?.content;
+  if (!content) throw new Error("No AI response");
+
+  try {
+    return JSON.parse(content);
+  } catch {
+    throw new Error("Invalid AI response format");
+  }
 }
 
 export async function regenerateClips(input: {
@@ -27,8 +154,22 @@ export async function regenerateClips(input: {
   previousClipIds?: string[];
   options?: Record<string, unknown>;
 }): Promise<{ id: string; status: string; clipIds: string[] }> {
-  console.warn("[CLIPS] regenerateClips: stub");
-  return { id: `regen_${input.clipIds?.[0] ?? "unknown"}`, status: "queued", clipIds: input.clipIds ?? [] };
+  if (input.videoId && input.userId) {
+    // Delete existing clips if regenerating for entire video
+    if (input.previousClipIds?.length) {
+      await prisma.clip.deleteMany({
+        where: { id: { in: input.previousClipIds } }
+      });
+    }
+    
+    return generateClips({
+      videoId: input.videoId,
+      userId: input.userId,
+      options: input.options as any
+    });
+  }
+  
+  throw new Error("Invalid regeneration parameters");
 }
 
 export async function getCaptions(input: { clipId: string }): Promise<{
@@ -37,10 +178,32 @@ export async function getCaptions(input: { clipId: string }): Promise<{
   format: string;
   language: string;
 }> {
-  console.warn("[CLIPS] getCaptions: stub");
+  const clip = await prisma.clip.findUnique({
+    where: { id: input.clipId },
+    include: { 
+      video: { 
+        include: { transcript: true } 
+      } 
+    }
+  });
+
+  if (!clip || !clip.video.transcript) {
+    throw new Error("Clip or transcript not found");
+  }
+
+  // Extract segments for the clip timeframe
+  const transcriptSegments = JSON.parse(clip.video.transcript.segments as string);
+  const clipSegments = transcriptSegments.filter((seg: any) => 
+    seg.start >= clip.startTime && seg.end <= clip.endTime
+  ).map((seg: any) => ({
+    start: seg.start - clip.startTime, // Relative to clip start
+    end: seg.end - clip.startTime,
+    text: seg.text
+  }));
+
   return {
     clipId: input.clipId,
-    segments: [],
+    segments: clipSegments,
     format: "srt",
     language: "en",
   };
@@ -50,11 +213,20 @@ export async function updateCaptions(input: {
   clipId: string;
   captions: { segments: Array<{ start: number; end: number; text: string }>; style?: Record<string, unknown> };
 }): Promise<{ clipId: string; segments: Array<{ start: number; end: number; text: string }>; updatedAt: Date }> {
-  console.warn("[CLIPS] updateCaptions: stub");
+  const updatedAt = new Date();
+  
+  await prisma.clip.update({
+    where: { id: input.clipId },
+    data: {
+      captions: input.captions as any,
+      updatedAt
+    }
+  });
+
   return {
     clipId: input.clipId,
     segments: input.captions.segments,
-    updatedAt: new Date(),
+    updatedAt,
   };
 }
 
@@ -69,10 +241,39 @@ export async function publishClip(input: {
     visibility?: string;
   };
 }): Promise<{ id: string; status: string; platformUrl: string }> {
-  console.warn("[CLIPS] publishClip: stub", { clipId: input.clipId, platform: input.platform });
-  return { id: `pub_${input.clipId}`, status: "pending", platformUrl: "" };
+  // Create publication record
+  const publication = await prisma.publication.create({
+    data: {
+      clipId: input.clipId,
+      platform: input.platform.toUpperCase() as any,
+      status: "PENDING",
+    }
+  });
+
+  // Create job for publishing
+  const job = await prisma.job.create({
+    data: {
+      userId: input.userId,
+      type: "PUBLISH",
+      status: "QUEUED",
+      result: {
+        publicationId: publication.id,
+        platform: input.platform,
+        metadata: input.metadata
+      }
+    }
+  });
+
+  return { 
+    id: job.id, 
+    status: "queued", 
+    platformUrl: "" 
+  };
 }
 
 export async function deleteClipAssets(input: { storageKey: string | null }): Promise<void> {
-  console.warn("[CLIPS] deleteClipAssets: stub", input.storageKey);
+  if (!input.storageKey) return;
+  
+  // TODO: Implement actual S3/R2 deletion
+  console.log(`[CLIPS] Would delete asset: ${input.storageKey}`);
 }

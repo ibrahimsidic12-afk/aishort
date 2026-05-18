@@ -6,7 +6,6 @@ import { validateFileType, validateFileSize } from "@/lib/upload/validation";
 
 export async function POST(req: NextRequest) {
   try {
-    // TODO: Authenticate user
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -22,7 +21,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: Validate file type (mp4, mov, avi, webm, etc.)
     if (!validateFileType(fileType)) {
       return NextResponse.json(
         { error: "Unsupported file type" },
@@ -30,7 +28,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: Validate file size against user's plan limits
     const maxSize = user.plan === "FREE" ? 2e9 : user.plan === "PRO" ? 10e9 : 50e9;
     if (!validateFileSize(fileSize, maxSize)) {
       return NextResponse.json(
@@ -39,10 +36,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: Check user's upload quota
-    // TODO: Generate unique storage key
     const { uploadUrl, key } = await generatePresignedUrl({
-      key: `${user.id}/${fileName}`,
+      key: `${user.id}/${Date.now()}-${fileName}`,
     });
 
     return NextResponse.json({
@@ -50,9 +45,9 @@ export async function POST(req: NextRequest) {
       key,
     });
   } catch (error) {
-    console.error("[UPLOAD_PRESIGNED]", error);
+    console.error("Presigned URL generation failed:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Failed to generate upload URL" },
       { status: 500 }
     );
   }

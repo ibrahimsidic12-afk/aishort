@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   keywords: ["ai", "video", "clipper", "shorts", "tiktok", "youtube"],
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: {

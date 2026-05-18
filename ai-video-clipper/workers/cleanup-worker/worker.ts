@@ -7,7 +7,8 @@
  * - Cancel stale jobs
  */
 
-import { runCleanupWorkflow } from "../../app/workflows/cleanup-workflow";
+import { fileURLToPath } from "url";
+import { runCleanupWorkflow } from "../../app/workflows/cleanup-workflow.js";
 
 interface CleanupJob {
   dryRun?: boolean;
@@ -26,8 +27,10 @@ export async function processCleanupJob(job: CleanupJob = {}) {
   return results;
 }
 
-// Worker entry point
-if (require.main === module) {
+// ESM-compatible worker entry point
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
   console.log("[Cleanup Worker] Starting...");
   processCleanupJob()
     .then(() => process.exit(0))

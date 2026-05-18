@@ -4,7 +4,8 @@
  * Generates and selects thumbnails for clips
  */
 
-import { extractFrames } from "./thumbnails";
+import { fileURLToPath } from "url";
+import { extractFrames } from "./thumbnails.js";
 
 interface ThumbnailJob {
   clipId: string;
@@ -30,8 +31,10 @@ export async function processThumbnailJob(job: ThumbnailJob) {
   return { thumbnails: frames };
 }
 
-// Worker entry point
-if (require.main === module) {
+// ESM-compatible worker entry point
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
   console.log("[Thumbnail Worker] Starting...");
   // TODO: Connect to job queue
 }

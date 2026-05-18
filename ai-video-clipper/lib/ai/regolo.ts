@@ -1,4 +1,15 @@
 ﻿import OpenAI from "openai";
+import {
+  parseAIResponse,
+  TranscriptSegmentsResponseSchema,
+  TranscriptSegmentSchema,
+  ScoredSegmentsResponseSchema,
+  ViralityResponseSchema,
+  type ValidatedTranscriptSegment,
+  type ValidatedScoredSegment,
+  type ValidatedViralityPrediction,
+} from "./schemas";
+import { z } from "zod";
 
 /**
  * Regolo AI Client
@@ -83,16 +94,13 @@ Return up to ${maxSegments} segments, ordered by engagement potential.`,
   });
 
   const content = response.choices[0]?.message?.content || "[]";
-  const parsed = JSON.parse(content);
-
-  // Handle both array and object responses
+  
+  // Parse and validate with Zod - handles both array and object responses
+  const parsed = parseAIResponse(content, TranscriptSegmentsResponseSchema, []);
+  
+  // Normalize: if it came as an object with .segments, extract the array
   if (Array.isArray(parsed)) return parsed;
-  if (parsed.segments) return parsed.segments;
-
-  // Try to extract from any array-like property
-  for (const key of Object.keys(parsed)) {
-    if (Array.isArray(parsed[key])) return parsed[key];
-  }
+  if ("segments" in parsed) return parsed.segments;
 
   return [];
 }
@@ -139,9 +147,9 @@ Return JSON with scores and reasoning:
   });
 
   const content = response.choices[0]?.message?.content || '{}';
-  const parsed = JSON.parse(content);
+  const parsed = parseAIResponse(content, ScoredSegmentsResponseSchema, { scored_segments: [] });
 
-  return parsed.scored_segments || [];
+  return parsed.scored_segments;
 }
 
 /**
@@ -187,9 +195,14 @@ Return JSON:
   });
 
   const content = response.choices[0]?.message?.content || '{}';
-  const parsed = JSON.parse(content);
+  const parsed = parseAIResponse(content, ViralityResponseSchema, { predictions: [] });
 
-  return parsed.predictions || [];
+  return parsed.predictions.map((p) => ({
+    start: p.start,
+    end: p.end,
+    viralityScore: p.virality_score,
+    reasons: p.reasons,
+  }));
 }
 
 export default regolo;

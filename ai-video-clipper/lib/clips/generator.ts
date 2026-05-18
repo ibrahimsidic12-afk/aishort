@@ -1,5 +1,6 @@
 import { prisma } from "../db/prisma";
 import { regolo } from "../ai/regolo";
+import { parseAIResponse, ClipSegmentsResponseSchema, type ValidatedClipSegment } from "../ai/schemas";
 
 export async function generateClips(input: {
   videoId: string;
@@ -46,7 +47,7 @@ export async function generateClips(input: {
 
     // Create clip records
     const clips = await Promise.all(
-      segments.map(async (segment: ClipSegment, index: number) => {
+      segments.map(async (segment: ValidatedClipSegment, index: number) => {
         return prisma.clip.create({
           data: {
             userId,
@@ -93,21 +94,11 @@ export async function generateClips(input: {
   }
 }
 
-interface ClipSegment {
-  startTime: number;
-  endTime: number;
-  title?: string;
-  description?: string;
-  score?: number;
-  viralityScore?: number;
-  tags?: string[];
-}
-
 async function identifyClipSegments(
   transcript: string,
   videoDuration: number,
   options: { maxClips: number; minDuration: number; maxDuration: number }
-): Promise<ClipSegment[]> {
+): Promise<ValidatedClipSegment[]> {
   const prompt = `Analyze this video transcript and identify the ${options.maxClips} most engaging segments for short-form content.
 
 Transcript: ${transcript}
@@ -138,13 +129,13 @@ Return JSON array with this structure:
   });
 
   const content = response.choices[0]?.message?.content;
-  if (!content) throw new Error("No AI response");
-
-  try {
-    return JSON.parse(content);
-  } catch {
-    throw new Error("Invalid AI response format");
-  }
+  
+  const segments = parseAIResponse(content, ClipSegmentsResponseSchema, []);
+  
+  // Filter segments that exceed video duration
+  return segments.filter(
+    (seg) => seg.startTime >= 0 && seg.endTime <= videoDuration && seg.endTime > seg.startTime
+  );
 }
 
 export async function regenerateClips(input: {
@@ -274,6 +265,7 @@ export async function publishClip(input: {
 export async function deleteClipAssets(input: { storageKey: string | null }): Promise<void> {
   if (!input.storageKey) return;
   
-  // TODO: Implement actual S3/R2 deletion
-  console.log(`[CLIPS] Would delete asset: ${input.storageKey}`);
+  const { deleteStorageObject } = await import("../storage/presigned");
+  await deleteStorageObject(input.storageKey);
+  console.log(`[CLIPS] Deleted asset: ${input.storageKey}`);
 }

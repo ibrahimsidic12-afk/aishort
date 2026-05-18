@@ -8,8 +8,9 @@
  * - Thumbnail generation
  */
 
-import { render } from "./render";
-import { addCaptions } from "./captions";
+import { fileURLToPath } from "url";
+import { render } from "./render.js";
+import { addCaptions } from "./captions.js";
 
 interface RenderJob {
   clipId: string;
@@ -48,8 +49,10 @@ export async function processRenderJob(job: RenderJob) {
   return { outputKey: job.outputKey, outputPath };
 }
 
-// Worker entry point
-if (require.main === module) {
+// ESM-compatible worker entry point
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
   console.log("[FFmpeg Worker] Starting...");
   // TODO: Connect to job queue and listen for render jobs
 }

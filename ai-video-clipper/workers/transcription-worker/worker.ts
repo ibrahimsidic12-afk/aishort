@@ -7,8 +7,9 @@
  * - Processing results
  */
 
-import { transcribeWithWhisper } from "./whisper";
-import { generateSubtitles } from "./subtitles";
+import { fileURLToPath } from "url";
+import { transcribeWithWhisper } from "./whisper.js";
+import { generateSubtitles } from "./subtitles.js";
 
 interface TranscriptionJob {
   videoId: string;
@@ -33,8 +34,10 @@ export async function processTranscriptionJob(job: TranscriptionJob) {
   };
 }
 
-// Worker entry point
-if (require.main === module) {
+// ESM-compatible worker entry point
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
   console.log("[Transcription Worker] Starting...");
   // TODO: Connect to job queue
 }

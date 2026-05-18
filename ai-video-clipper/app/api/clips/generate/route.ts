@@ -3,10 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { generateClips } from "@/lib/clips/generator";
 import { db } from "@/lib/db";
+import { checkQuota, recordUsage } from "@/lib/quota";
 
 export async function POST(req: NextRequest) {
   try {
-    // TODO: Authenticate user
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: Verify video belongs to user and has been transcribed
+    // Verify video belongs to user
     const video = await db.video.findFirst({
       where: { id: videoId, userId: user.id },
     });
@@ -31,15 +31,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Video not found" }, { status: 404 });
     }
 
-    if ((video.status as any) !== "transcribed" && (video.status as any) !== "READY") {
+    if (video.status !== "READY") {
       return NextResponse.json(
         { error: "Video must be transcribed before generating clips" },
         { status: 400 }
       );
     }
 
-    // TODO: Check user's clip generation quota
-    // TODO: Enqueue clip generation job with AI parameters
+    // Check user's clip generation quota
+    const quotaCheck = await checkQuota(user.id, "CLIP_GENERATION");
+    if (!quotaCheck.allowed) {
+      return NextResponse.json(
+        { error: quotaCheck.reason, remaining: quotaCheck.remaining, limit: quotaCheck.limit },
+        { status: 429 }
+      );
+    }
+
     const job = await generateClips({
       videoId,
       userId: user.id,
@@ -52,6 +59,9 @@ export async function POST(req: NextRequest) {
         ...options,
       },
     });
+
+    // Record usage
+    await recordUsage(user.id, "CLIP_GENERATION", { videoId, clipCount: job.clipIds.length });
 
     return NextResponse.json({
       jobId: job.id,

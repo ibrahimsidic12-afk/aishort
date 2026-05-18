@@ -4,6 +4,7 @@
  */
 
 import { segmentTranscript, scoreForEngagement, predictVirality, type Segment } from "./regolo";
+import { parseAIResponse, CaptionsResponseSchema, ThumbnailSelectionSchema, type ValidatedStyledCaption } from "./schemas";
 
 /**
  * Analyze transcript and identify best segments for clipping
@@ -127,9 +128,14 @@ Return JSON array:
   });
 
   const content = response.choices[0]?.message?.content || '{}';
-  const parsed = JSON.parse(content);
-
-  return parsed.captions || parsed.styled_captions || [];
+  
+  const parsed = parseAIResponse(content, CaptionsResponseSchema, []);
+  
+  // Normalize response shape
+  if (Array.isArray(parsed)) return parsed;
+  if ("captions" in parsed) return parsed.captions;
+  if ("styled_captions" in parsed) return parsed.styled_captions;
+  return [];
 }
 
 /**
@@ -179,12 +185,12 @@ Return JSON:
     temperature: 0.3,
   });
 
-  const content = response.choices[0]?.message?.content || '{}';
-  const parsed = JSON.parse(content);
+  const content2 = response.choices[0]?.message?.content || '{}';
+  const parsed = parseAIResponse(content2, ThumbnailSelectionSchema, { frame_index: 0, reason: "Default selection" });
 
   return {
-    frameIndex: Math.min(Math.max(parsed.frame_index ?? 0, 0), input.frames.length - 1),
-    reason: parsed.reason || "Default selection",
+    frameIndex: Math.min(Math.max(parsed.frame_index, 0), input.frames.length - 1),
+    reason: parsed.reason,
   };
 }
 

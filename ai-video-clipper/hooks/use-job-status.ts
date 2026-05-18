@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { JobStatus } from "@/types";
 
 interface JobStatusState {
@@ -10,42 +10,106 @@ interface JobStatusState {
   result: Record<string, unknown> | null;
 }
 
-export function useJobStatus(jobId: string | null, pollInterval = 2000) {
+/**
+ * Hook for tracking job status via Server-Sent Events (SSE)
+ * Falls back to polling if SSE is not available
+ */
+export function useJobStatus(jobId: string | null, options?: { pollInterval?: number }) {
   const [state, setState] = useState<JobStatusState>({
     status: "QUEUED",
     progress: 0,
     error: null,
     result: null,
   });
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout>();
+  const { pollInterval = 2000 } = options || {};
+
+  const cleanup = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = undefined;
+    }
+  }, []);
 
   useEffect(() => {
     if (!jobId) return;
 
-    const poll = async () => {
+    // Try SSE first
+    const connectSSE = () => {
       try {
-        const res = await fetch(`/api/jobs/status?jobId=${jobId}`);
-        const data = await res.json();
-        setState({
-          status: data.status,
-          progress: data.progress,
-          error: data.error,
-          result: data.result,
-        });
+        const eventSource = new EventSource(`/api/jobs/stream?jobId=${jobId}`);
+        eventSourceRef.current = eventSource;
 
-        if (data.status === "COMPLETED" || data.status === "FAILED" || data.status === "CANCELLED") {
-          clearInterval(intervalRef.current);
-        }
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            setState({
+              status: data.status,
+              progress: data.progress,
+              error: data.error,
+              result: data.result,
+            });
+
+            // Close connection when job is complete
+            if (data.status === "COMPLETED" || data.status === "FAILED" || data.status === "CANCELLED") {
+              eventSource.close();
+              eventSourceRef.current = null;
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        };
+
+        eventSource.onerror = () => {
+          // SSE failed, fall back to polling
+          eventSource.close();
+          eventSourceRef.current = null;
+          startPolling();
+        };
       } catch {
-        // Retry on next interval
+        // EventSource not supported, fall back to polling
+        startPolling();
       }
     };
 
-    poll();
-    intervalRef.current = setInterval(poll, pollInterval);
+    // Polling fallback
+    const startPolling = () => {
+      const poll = async () => {
+        try {
+          const res = await fetch(`/api/jobs/status?jobId=${jobId}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          setState({
+            status: data.status,
+            progress: data.progress,
+            error: data.error,
+            result: data.result,
+          });
 
-    return () => clearInterval(intervalRef.current);
-  }, [jobId, pollInterval]);
+          if (data.status === "COMPLETED" || data.status === "FAILED" || data.status === "CANCELLED") {
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = undefined;
+            }
+          }
+        } catch {
+          // Retry on next interval
+        }
+      };
 
-  return state;
+      poll();
+      pollIntervalRef.current = setInterval(poll, pollInterval);
+    };
+
+    connectSSE();
+
+    return cleanup;
+  }, [jobId, pollInterval, cleanup]);
+
+  return { ...state, cleanup };
 }

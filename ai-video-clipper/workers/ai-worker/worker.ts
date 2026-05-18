@@ -8,8 +8,9 @@
  * - Content segmentation
  */
 
-import { scoreSegments } from "./scoring";
-import { segmentContent } from "./segmentation";
+import { fileURLToPath } from "url";
+import { scoreSegments } from "./scoring.js";
+import { segmentContent } from "./segmentation.js";
 
 interface AIJob {
   type: "analyze" | "score" | "virality";
@@ -40,12 +41,14 @@ export async function processAIJob(job: AIJob) {
       return { predictions: [] };
     }
     default:
-      throw new Error(`Unknown AI job type: ${job.type}`);
+      throw new Error(`Unknown AI job type: ${(job as AIJob).type}`);
   }
 }
 
-// Worker entry point
-if (require.main === module) {
+// ESM-compatible worker entry point
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
   console.log("[AI Worker] Starting...");
   // TODO: Connect to job queue and listen for AI jobs
 }

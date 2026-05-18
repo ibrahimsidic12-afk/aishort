@@ -5,18 +5,18 @@ import { ClipsFilters } from "@/components/clips/clips-filters";
 import { ClipsPagination } from "@/components/clips/clips-pagination";
 import { ClipsBulkActions } from "@/components/clips/clips-bulk-actions";
 
-interface ClipsPageProps {
+const PAGE_SIZE = 12;
+
+export default async function ClipsPage({
+  searchParams,
+}: {
   searchParams: Promise<{
     status?: string;
     sort?: string;
     search?: string;
     page?: string;
   }>;
-}
-
-const PAGE_SIZE = 12;
-
-export default async function ClipsPage({ searchParams }: ClipsPageProps) {
+}) {
   const user = await getCurrentUser();
   if (!user) {
     return (

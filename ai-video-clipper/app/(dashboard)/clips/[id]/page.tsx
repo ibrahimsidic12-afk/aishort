@@ -4,11 +4,11 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ClipDetailClient } from "@/components/clips/clip-detail-client";
 
-interface ClipDetailPageProps {
+export default async function ClipDetailPage({
+  params,
+}: {
   params: Promise<{ id: string }>;
-}
-
-export default async function ClipDetailPage({ params }: ClipDetailPageProps) {
+}) {
   const user = await getCurrentUser();
   if (!user) {
     return (

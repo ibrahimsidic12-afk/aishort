@@ -2,13 +2,6 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import Link from "next/link";
 
-interface VideosPageProps {
-  searchParams: Promise<{
-    status?: string;
-    page?: string;
-  }>;
-}
-
 const PAGE_SIZE = 10;
 
 const STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string }> = {
@@ -19,7 +12,14 @@ const STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string }> =
   ERROR: { bg: "bg-red-500/10", text: "text-red-600 dark:text-red-400", dot: "bg-red-500" },
 };
 
-export default async function VideosPage({ searchParams }: VideosPageProps) {
+export default async function VideosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    status?: string;
+    page?: string;
+  }>;
+}) {
   const user = await getCurrentUser();
   if (!user) {
     return (

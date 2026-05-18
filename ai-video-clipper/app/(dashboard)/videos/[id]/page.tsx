@@ -3,10 +3,6 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
-interface VideoDetailPageProps {
-  params: Promise<{ id: string }>;
-}
-
 const STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string; label: string }> = {
   UPLOADING: { bg: "bg-yellow-500/10", text: "text-yellow-600 dark:text-yellow-400", dot: "bg-yellow-500", label: "Uploading" },
   PROCESSING: { bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400", dot: "bg-blue-500 animate-pulse", label: "Processing" },
@@ -15,7 +11,11 @@ const STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string; lab
   ERROR: { bg: "bg-red-500/10", text: "text-red-600 dark:text-red-400", dot: "bg-red-500", label: "Error" },
 };
 
-export default async function VideoDetailPage({ params }: VideoDetailPageProps) {
+export default async function VideoDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) {
     return (

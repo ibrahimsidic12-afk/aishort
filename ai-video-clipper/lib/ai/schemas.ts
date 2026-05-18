@@ -10,16 +10,37 @@ import { z } from "zod";
 export const ClipSegmentSchema = z.object({
   startTime: z.number().min(0),
   endTime: z.number().min(0),
-  title: z.string().optional().transform((v) => v ?? "Untitled Clip"),
-  description: z.string().optional().transform((v) => v ?? ""),
-  score: z.number().min(0).max(100).optional().transform((v) => v ?? 50),
-  viralityScore: z.number().min(0).max(100).optional().transform((v) => v ?? 50),
-  tags: z.array(z.string()).optional().transform((v) => v ?? []),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  score: z.number().min(0).max(100).optional(),
+  viralityScore: z.number().min(0).max(100).optional(),
+  tags: z.array(z.string()).optional(),
 });
 
 export const ClipSegmentsResponseSchema = z.array(ClipSegmentSchema);
 
-export type ValidatedClipSegment = z.infer<typeof ClipSegmentSchema>;
+export interface ValidatedClipSegment {
+  startTime: number;
+  endTime: number;
+  title: string;
+  description: string;
+  score: number;
+  viralityScore: number;
+  tags: string[];
+}
+
+/** Normalize a raw parsed clip segment with defaults */
+export function normalizeClipSegment(raw: z.infer<typeof ClipSegmentSchema>): ValidatedClipSegment {
+  return {
+    startTime: raw.startTime,
+    endTime: raw.endTime,
+    title: raw.title ?? "Untitled Clip",
+    description: raw.description ?? "",
+    score: raw.score ?? 50,
+    viralityScore: raw.viralityScore ?? 50,
+    tags: raw.tags ?? [],
+  };
+}
 
 // ─── Transcript Segmentation Schemas ─────────────────────────────
 
@@ -43,14 +64,29 @@ export const ScoredSegmentSchema = z.object({
   start: z.number().min(0),
   end: z.number().min(0),
   score: z.number().min(0).max(100),
-  reason: z.string().optional().transform((v) => v ?? "No reason provided"),
+  reason: z.string().optional(),
 });
 
 export const ScoredSegmentsResponseSchema = z.object({
   scored_segments: z.array(ScoredSegmentSchema),
 });
 
-export type ValidatedScoredSegment = z.infer<typeof ScoredSegmentSchema>;
+export interface ValidatedScoredSegment {
+  start: number;
+  end: number;
+  score: number;
+  reason: string;
+}
+
+/** Normalize a raw scored segment with defaults */
+export function normalizeScoredSegment(raw: z.infer<typeof ScoredSegmentSchema>): ValidatedScoredSegment {
+  return {
+    start: raw.start,
+    end: raw.end,
+    score: raw.score,
+    reason: raw.reason ?? "No reason provided",
+  };
+}
 
 // ─── Virality Prediction Schemas ─────────────────────────────────
 
@@ -58,22 +94,37 @@ export const ViralityPredictionSchema = z.object({
   start: z.number().min(0),
   end: z.number().min(0),
   virality_score: z.number().min(0).max(100),
-  reasons: z.array(z.string()).optional().transform((v) => v ?? []),
+  reasons: z.array(z.string()).optional(),
 });
 
 export const ViralityResponseSchema = z.object({
   predictions: z.array(ViralityPredictionSchema),
 });
 
-export type ValidatedViralityPrediction = z.infer<typeof ViralityPredictionSchema>;
+export interface ValidatedViralityPrediction {
+  start: number;
+  end: number;
+  virality_score: number;
+  reasons: string[];
+}
+
+/** Normalize a raw virality prediction with defaults */
+export function normalizeViralityPrediction(raw: z.infer<typeof ViralityPredictionSchema>): ValidatedViralityPrediction {
+  return {
+    start: raw.start,
+    end: raw.end,
+    virality_score: raw.virality_score,
+    reasons: raw.reasons ?? [],
+  };
+}
 
 // ─── Caption Styling Schemas ─────────────────────────────────────
 
 export const CaptionStyleSchema = z.object({
-  fontSize: z.number().min(12).max(128).optional().transform((v) => v ?? 40),
-  position: z.string().optional().transform((v) => v ?? "bottom"),
-  animation: z.enum(["fade", "slide-up", "pop", "typewriter", "none"]).optional().transform((v) => v ?? "fade"),
-  color: z.string().optional().transform((v) => v ?? "#FFFFFF"),
+  fontSize: z.number().optional(),
+  position: z.string().optional(),
+  animation: z.string().optional(),
+  color: z.string().optional(),
 });
 
 export const StyledCaptionSchema = z.object({
@@ -89,16 +140,52 @@ export const CaptionsResponseSchema = z.union([
   z.array(StyledCaptionSchema),
 ]);
 
-export type ValidatedStyledCaption = z.infer<typeof StyledCaptionSchema>;
+export interface ValidatedStyledCaption {
+  start: number;
+  end: number;
+  text: string;
+  style: {
+    fontSize: number;
+    position: string;
+    animation: string;
+    color: string;
+  };
+}
+
+/** Normalize a raw styled caption with defaults */
+export function normalizeStyledCaption(raw: z.infer<typeof StyledCaptionSchema>): ValidatedStyledCaption {
+  return {
+    start: raw.start,
+    end: raw.end,
+    text: raw.text,
+    style: {
+      fontSize: raw.style.fontSize ?? 40,
+      position: raw.style.position ?? "bottom",
+      animation: raw.style.animation ?? "fade",
+      color: raw.style.color ?? "#FFFFFF",
+    },
+  };
+}
 
 // ─── Thumbnail Selection Schema ──────────────────────────────────
 
 export const ThumbnailSelectionSchema = z.object({
   frame_index: z.number().int().min(0),
-  reason: z.string().optional().transform((v) => v ?? "Default selection"),
+  reason: z.string().optional(),
 });
 
-export type ValidatedThumbnailSelection = z.infer<typeof ThumbnailSelectionSchema>;
+export interface ValidatedThumbnailSelection {
+  frame_index: number;
+  reason: string;
+}
+
+/** Normalize a raw thumbnail selection with defaults */
+export function normalizeThumbnailSelection(raw: z.infer<typeof ThumbnailSelectionSchema>): ValidatedThumbnailSelection {
+  return {
+    frame_index: raw.frame_index,
+    reason: raw.reason ?? "Default selection",
+  };
+}
 
 // ─── Utility: Safe JSON Parse with Zod ───────────────────────────
 

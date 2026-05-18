@@ -4,7 +4,7 @@
  */
 
 import { segmentTranscript, scoreForEngagement, predictVirality, type Segment } from "./regolo";
-import { parseAIResponse, CaptionsResponseSchema, ThumbnailSelectionSchema, type ValidatedStyledCaption } from "./schemas";
+import { parseAIResponse, CaptionsResponseSchema, ThumbnailSelectionSchema, normalizeStyledCaption, type ValidatedStyledCaption } from "./schemas";
 
 /**
  * Analyze transcript and identify best segments for clipping
@@ -142,17 +142,7 @@ Return JSON array:
     ? parsed.styled_captions
     : [];
 
-  segments = rawSegments.map((seg) => ({
-    start: seg.start,
-    end: seg.end,
-    text: seg.text,
-    style: {
-      fontSize: seg.style.fontSize,
-      position: seg.style.position,
-      animation: seg.style.animation,
-      color: seg.style.color,
-    },
-  }));
+  segments = rawSegments.map((seg) => normalizeStyledCaption(seg));
 
   return segments;
 }
@@ -209,7 +199,7 @@ Return JSON:
 
   return {
     frameIndex: Math.min(Math.max(parsed.frame_index, 0), input.frames.length - 1),
-    reason: parsed.reason,
+    reason: parsed.reason ?? "Default selection",
   };
 }
 

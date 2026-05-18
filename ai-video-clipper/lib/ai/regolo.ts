@@ -153,7 +153,7 @@ Return JSON with scores and reasoning:
     start: s.start,
     end: s.end,
     score: s.score,
-    reason: s.reason,
+    reason: s.reason ?? "No reason provided",
   }));
 }
 
@@ -206,7 +206,7 @@ Return JSON:
     start: p.start,
     end: p.end,
     viralityScore: p.virality_score,
-    reasons: p.reasons,
+    reasons: p.reasons ?? [],
   }));
 }
 

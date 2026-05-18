@@ -1,6 +1,6 @@
 import { prisma } from "../db/prisma";
 import { regolo } from "../ai/regolo";
-import { parseAIResponse, ClipSegmentsResponseSchema, type ValidatedClipSegment } from "../ai/schemas";
+import { parseAIResponse, ClipSegmentsResponseSchema, normalizeClipSegment, type ValidatedClipSegment } from "../ai/schemas";
 
 export async function generateClips(input: {
   videoId: string;
@@ -132,8 +132,8 @@ Return JSON array with this structure:
   
   const segments = parseAIResponse(content, ClipSegmentsResponseSchema, []);
   
-  // Filter segments that exceed video duration
-  return segments.filter(
+  // Normalize and filter segments that exceed video duration
+  return segments.map(normalizeClipSegment).filter(
     (seg) => seg.startTime >= 0 && seg.endTime <= videoDuration && seg.endTime > seg.startTime
   );
 }

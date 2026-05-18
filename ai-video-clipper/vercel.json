@@ -1,10 +1,17 @@
 {
   "framework": "nextjs",
-  "regions": ["iad1"],
-  "crons": [
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
     {
-      "path": "/api/webhooks/qstash",
-      "schedule": "*/5 * * * *"
+      "source": "/(.*)",
+      "destination": "/$1"
     }
   ]
 }

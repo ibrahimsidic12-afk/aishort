@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { db } from "../db";
 
 export interface SessionUser {
@@ -15,7 +15,9 @@ export interface SessionUser {
 export async function getCurrentUser(): Promise<SessionUser | null> {
   const { userId } = await auth();
   if (!userId) return null;
-  const user = await db.user.findUnique({
+
+  // Try to find existing user in DB
+  let user = await db.user.findUnique({
     where: { clerkId: userId },
     select: {
       id: true,
@@ -27,6 +29,35 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
       credits: true,
     },
   });
-  if (!user) return null;
+
+  // If user doesn't exist in DB yet (webhook hasn't fired), create them
+  if (!user) {
+    const clerkUser = await currentUser();
+    if (!clerkUser) return null;
+
+    const email = clerkUser.emailAddresses?.[0]?.emailAddress || "";
+    const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
+
+    user = await db.user.create({
+      data: {
+        clerkId: userId,
+        email,
+        name,
+        avatarUrl: clerkUser.imageUrl || null,
+        plan: "FREE",
+        credits: 10,
+      },
+      select: {
+        id: true,
+        clerkId: true,
+        email: true,
+        name: true,
+        avatarUrl: true,
+        plan: true,
+        credits: true,
+      },
+    });
+  }
+
   return { ...user, connectedAccounts: {} };
 }

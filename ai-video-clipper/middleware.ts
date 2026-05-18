@@ -13,9 +13,25 @@ const isProtectedRoute = createRouteMatcher([
   "/settings(.*)",
 ]);
 
+const isAuthRoute = createRouteMatcher([
+  "/login(.*)",
+  "/signup(.*)",
+  "/forgot-password(.*)",
+]);
+
+const isPublicHomePage = createRouteMatcher(["/"]);
+
 const isApiRoute = createRouteMatcher(["/api(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
+  const { userId } = auth();
+
+  // Redirect authenticated users away from auth pages and home to dashboard
+  if (userId && (isAuthRoute(req) || isPublicHomePage(req))) {
+    const dashboardUrl = new URL("/dashboard", req.url);
+    return NextResponse.redirect(dashboardUrl);
+  }
+
   // Protect dashboard routes
   if (isProtectedRoute(req)) {
     auth().protect();

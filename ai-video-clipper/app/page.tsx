@@ -19,10 +19,10 @@ export default function HomePage() {
             Get Started Free
           </Link>
           <Link
-            href="/pricing"
+            href="/login"
             className="rounded-md border px-6 py-3 text-sm font-medium"
           >
-            View Pricing
+            Sign In
           </Link>
         </div>
       </section>

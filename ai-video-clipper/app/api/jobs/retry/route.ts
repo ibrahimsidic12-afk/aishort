@@ -6,7 +6,6 @@ import { db } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
-    // TODO: Authenticate user
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -22,7 +21,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: Verify job belongs to user and is in a failed state
+    // Verify job belongs to user and is in a failed state
     const job = await db.job.findFirst({
       where: { id: jobId, userId: user.id },
     });
@@ -31,14 +30,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
-    if ((job.status as any) !== "failed") {
+    if (job.status !== "FAILED") {
       return NextResponse.json(
         { error: "Only failed jobs can be retried" },
         { status: 400 }
       );
     }
 
-    // TODO: Check retry limit (max 3 retries)
     const retriedJob = await retryJob(jobId);
 
     return NextResponse.json({

@@ -1,34 +1,36 @@
-import Link from "next/link";
+import { SignIn } from "@clerk/nextjs";
 
 export default function ForgotPasswordPage() {
   return (
-    <div className="flex flex-col items-center">
-      <h1 className="mb-2 text-2xl font-bold">Forgot password?</h1>
-      <p className="mb-6 text-sm text-muted-foreground">
-        Enter your email to receive a reset link.
-      </p>
-      <form className="w-full space-y-4">
-        <div>
-          <label htmlFor="email" className="text-sm font-medium">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            placeholder="you@example.com"
-            className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
-          />
-        </div>
-        <button
-          type="submit"
-          className="w-full rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90"
-        >
-          Send Reset Link
-        </button>
-      </form>
-      <Link href="/login" className="mt-4 text-sm text-primary hover:underline">
-        Back to login
-      </Link>
+    <div className="flex flex-col">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight">Reset your password</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Enter your email and we&apos;ll send you a reset link
+        </p>
+      </div>
+      <SignIn
+        initialValues={{ emailAddress: "" }}
+        fallbackRedirectUrl="/dashboard"
+        appearance={{
+          elements: {
+            rootBox: "w-full",
+            card: "shadow-none border-0 p-0 bg-transparent",
+            headerTitle: "hidden",
+            headerSubtitle: "hidden",
+            socialButtonsBlockButton:
+              "border border-border bg-card hover:bg-accent text-foreground rounded-lg h-11 font-medium transition-all",
+            dividerLine: "bg-border",
+            dividerText: "text-muted-foreground text-xs",
+            formFieldLabel: "text-sm font-medium text-foreground",
+            formFieldInput:
+              "rounded-lg border-border bg-background h-11 text-sm focus:ring-2 focus:ring-ring/20 focus:border-primary transition-all",
+            formButtonPrimary:
+              "gradient-bg hover:brightness-110 rounded-lg h-11 font-medium text-sm shadow-glow transition-all",
+            footerActionLink: "text-primary hover:text-primary/80 font-medium",
+          },
+        }}
+      />
     </div>
   );
 }

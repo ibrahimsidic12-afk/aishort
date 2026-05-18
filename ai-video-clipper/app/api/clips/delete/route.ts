@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth/session";
-import { deleteClipAssets } from "@/lib/clips/storage";
+import { deleteClipAssets } from "@/lib/clips/generator";
 import { db } from "@/lib/db";
 
 export async function DELETE(req: NextRequest) {
   try {
-    // TODO: Authenticate user
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -22,7 +21,7 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // TODO: Verify clip belongs to user
+    // Verify clip belongs to user
     const clip = await db.clip.findFirst({
       where: { id: clipId, userId: user.id },
     });
@@ -31,10 +30,10 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Clip not found" }, { status: 404 });
     }
 
-    // TODO: Delete clip assets from storage (video file, thumbnail, captions)
+    // Delete clip assets from storage
     await deleteClipAssets({ storageKey: clip.storageKey });
 
-    // TODO: Delete clip record from database
+    // Delete clip record from database
     await db.clip.delete({ where: { id: clipId } });
 
     return NextResponse.json({

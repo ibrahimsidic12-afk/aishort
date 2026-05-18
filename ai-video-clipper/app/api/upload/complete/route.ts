@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth/session";
-import { confirmUpload } from "@/lib/storage/upload";
-import { triggerVideoProcessing } from "@/lib/jobs/processing";
 import { db } from "@/lib/db";
+import { getPublicUrl } from "@/lib/storage/presigned";
+import { checkQuota, recordUsage } from "@/lib/quota";
+import { createProcessingJob, sendJob } from "@/lib/jobs/queue";
 
 export async function POST(req: NextRequest) {
   try {
-    // TODO: Authenticate user
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
-    const { key, fileName, fileSize, duration } = body;
+    const { key, fileName, fileSize, mimeType } = body;
 
     if (!key || !fileName) {
       return NextResponse.json(
@@ -23,33 +23,58 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: Verify the upload actually completed in storage
-    await confirmUpload(key);
+    // Check upload quota
+    const quotaCheck = await checkQuota(user.id, "VIDEO_UPLOAD");
+    if (!quotaCheck.allowed) {
+      return NextResponse.json(
+        { error: quotaCheck.reason },
+        { status: 429 }
+      );
+    }
 
-    // TODO: Create video record in database
-    const video: { id: string } = await db.video.create({
+    // Create video record in database
+    const storageUrl = getPublicUrl(key);
+    const video = await db.video.create({
       data: {
         userId: user.id,
         storageKey: key,
+        storageUrl,
         fileName,
-        fileSize,
-        duration,
-        title: fileName || "Untitled",
-        mimeType: "video/mp4",
-        status: "uploaded" as any,
+        fileSize: fileSize || 0,
+        title: fileName.replace(/\.[^/.]+$/, "") || "Untitled",
+        mimeType: mimeType || "video/mp4",
+        status: "UPLOADING",
       },
-    } as any);
+    });
 
-    // TODO: Trigger background processing (transcription, analysis)
-    const job = await triggerVideoProcessing({
+    // Record usage
+    await recordUsage(user.id, "VIDEO_UPLOAD", { videoId: video.id });
+
+    // Create transcription job
+    const job = await createProcessingJob({
       videoId: video.id,
       userId: user.id,
+      type: "TRANSCRIPTION",
+    });
+
+    // Send job to queue for processing
+    await sendJob({
+      jobId: job.id,
+      type: "TRANSCRIPTION",
+      videoId: video.id,
+      userId: user.id,
+    });
+
+    // Update video status
+    await db.video.update({
+      where: { id: video.id },
+      data: { status: "PROCESSING" },
     });
 
     return NextResponse.json({
       success: true,
       videoId: video.id,
-      jobId: job.jobId?.[0] || `job_${video.id}`,
+      jobId: job.id,
       status: "processing",
     });
   } catch (error) {

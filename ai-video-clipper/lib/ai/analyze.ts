@@ -131,11 +131,30 @@ Return JSON array:
   
   const parsed = parseAIResponse(content, CaptionsResponseSchema, []);
   
-  // Normalize response shape
-  if (Array.isArray(parsed)) return parsed;
-  if ("captions" in parsed) return parsed.captions;
-  if ("styled_captions" in parsed) return parsed.styled_captions;
-  return [];
+  // Normalize response shape and ensure all fields have values
+  let segments: Array<{ start: number; end: number; text: string; style: { fontSize: number; position: string; animation: string; color: string } }> = [];
+  
+  const rawSegments = Array.isArray(parsed)
+    ? parsed
+    : "captions" in parsed
+    ? parsed.captions
+    : "styled_captions" in parsed
+    ? parsed.styled_captions
+    : [];
+
+  segments = rawSegments.map((seg) => ({
+    start: seg.start,
+    end: seg.end,
+    text: seg.text,
+    style: {
+      fontSize: seg.style.fontSize ?? 40,
+      position: seg.style.position ?? "bottom",
+      animation: seg.style.animation ?? "fade",
+      color: seg.style.color ?? "#FFFFFF",
+    },
+  }));
+
+  return segments;
 }
 
 /**

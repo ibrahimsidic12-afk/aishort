@@ -147,10 +147,10 @@ Return JSON array:
     end: seg.end,
     text: seg.text,
     style: {
-      fontSize: seg.style.fontSize ?? 40,
-      position: seg.style.position ?? "bottom",
-      animation: seg.style.animation ?? "fade",
-      color: seg.style.color ?? "#FFFFFF",
+      fontSize: seg.style.fontSize,
+      position: seg.style.position,
+      animation: seg.style.animation,
+      color: seg.style.color,
     },
   }));
 
@@ -209,7 +209,7 @@ Return JSON:
 
   return {
     frameIndex: Math.min(Math.max(parsed.frame_index, 0), input.frames.length - 1),
-    reason: parsed.reason ?? "Default selection",
+    reason: parsed.reason,
   };
 }
 

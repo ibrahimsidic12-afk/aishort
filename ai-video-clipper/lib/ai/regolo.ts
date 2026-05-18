@@ -149,7 +149,12 @@ Return JSON with scores and reasoning:
   const content = response.choices[0]?.message?.content || '{}';
   const parsed = parseAIResponse(content, ScoredSegmentsResponseSchema, { scored_segments: [] });
 
-  return parsed.scored_segments;
+  return parsed.scored_segments.map((s) => ({
+    start: s.start,
+    end: s.end,
+    score: s.score,
+    reason: s.reason,
+  }));
 }
 
 /**

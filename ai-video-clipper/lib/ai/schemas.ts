@@ -10,11 +10,11 @@ import { z } from "zod";
 export const ClipSegmentSchema = z.object({
   startTime: z.number().min(0),
   endTime: z.number().min(0),
-  title: z.string().optional().default("Untitled Clip"),
-  description: z.string().optional().default(""),
-  score: z.number().min(0).max(100).optional().default(50),
-  viralityScore: z.number().min(0).max(100).optional().default(50),
-  tags: z.array(z.string()).optional().default([]),
+  title: z.string().optional().transform((v) => v ?? "Untitled Clip"),
+  description: z.string().optional().transform((v) => v ?? ""),
+  score: z.number().min(0).max(100).optional().transform((v) => v ?? 50),
+  viralityScore: z.number().min(0).max(100).optional().transform((v) => v ?? 50),
+  tags: z.array(z.string()).optional().transform((v) => v ?? []),
 });
 
 export const ClipSegmentsResponseSchema = z.array(ClipSegmentSchema);
@@ -43,7 +43,7 @@ export const ScoredSegmentSchema = z.object({
   start: z.number().min(0),
   end: z.number().min(0),
   score: z.number().min(0).max(100),
-  reason: z.string().default("No reason provided"),
+  reason: z.string().optional().transform((v) => v ?? "No reason provided"),
 });
 
 export const ScoredSegmentsResponseSchema = z.object({
@@ -58,7 +58,7 @@ export const ViralityPredictionSchema = z.object({
   start: z.number().min(0),
   end: z.number().min(0),
   virality_score: z.number().min(0).max(100),
-  reasons: z.array(z.string()).default([]),
+  reasons: z.array(z.string()).optional().transform((v) => v ?? []),
 });
 
 export const ViralityResponseSchema = z.object({
@@ -70,10 +70,10 @@ export type ValidatedViralityPrediction = z.infer<typeof ViralityPredictionSchem
 // ─── Caption Styling Schemas ─────────────────────────────────────
 
 export const CaptionStyleSchema = z.object({
-  fontSize: z.number().min(12).max(128).default(40),
-  position: z.string().default("bottom"),
-  animation: z.enum(["fade", "slide-up", "pop", "typewriter", "none"]).default("fade"),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default("#FFFFFF"),
+  fontSize: z.number().min(12).max(128).optional().transform((v) => v ?? 40),
+  position: z.string().optional().transform((v) => v ?? "bottom"),
+  animation: z.enum(["fade", "slide-up", "pop", "typewriter", "none"]).optional().transform((v) => v ?? "fade"),
+  color: z.string().optional().transform((v) => v ?? "#FFFFFF"),
 });
 
 export const StyledCaptionSchema = z.object({
@@ -95,7 +95,7 @@ export type ValidatedStyledCaption = z.infer<typeof StyledCaptionSchema>;
 
 export const ThumbnailSelectionSchema = z.object({
   frame_index: z.number().int().min(0),
-  reason: z.string().default("Default selection"),
+  reason: z.string().optional().transform((v) => v ?? "Default selection"),
 });
 
 export type ValidatedThumbnailSelection = z.infer<typeof ThumbnailSelectionSchema>;

@@ -15,8 +15,7 @@ export interface SessionUser {
 export async function getCurrentUser(): Promise<SessionUser | null> {
   const { userId } = await auth();
   if (!userId) return null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const user: any = await db.user.findUnique({
+  const user = await db.user.findUnique({
     where: { clerkId: userId },
     select: {
       id: true,

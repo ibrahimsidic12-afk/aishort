@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 
-import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { checkQuota, recordUsage } from "@/lib/quota";
 import { createProcessingJob, sendJob } from "@/lib/jobs/queue";
@@ -25,7 +24,7 @@ function cleanTitle(title: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    // First check if user is authenticated via Clerk
+    // Authenticate with Clerk
     const { userId: clerkUserId } = await auth();
     if (!clerkUserId) {
       return NextResponse.json(
@@ -34,11 +33,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Then get the full user from DB (creates if not exists)
-    const user = await getCurrentUser();
-    if (!user) {
+    // Find or create user in DB
+    let dbUser: { id: string; plan: string; credits: number } | null = null;
+    try {
+      dbUser = await db.user.findUnique({
+        where: { clerkId: clerkUserId },
+        select: { id: true, plan: true, credits: true },
+      });
+
+      if (!dbUser) {
+        // Auto-create user from Clerk data
+        const clerkUser = await currentUser();
+        const email = clerkUser?.emailAddresses?.[0]?.emailAddress || `${clerkUserId}@user.local`;
+        const name = clerkUser ? [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") : null;
+
+        dbUser = await db.user.create({
+          data: {
+            clerkId: clerkUserId,
+            email,
+            name: name || null,
+            avatarUrl: clerkUser?.imageUrl || null,
+            plan: "FREE",
+            credits: 10,
+          },
+          select: { id: true, plan: true, credits: true },
+        });
+      }
+    } catch (dbError) {
+      console.error("[IMPORT_YOUTUBE] DB error:", dbError);
       return NextResponse.json(
-        { error: "Unable to load your account. Please try again or contact support.", code: "ACCOUNT_ERROR" },
+        { error: "Database connection failed. Please ensure DATABASE_URL is configured.", code: "DB_ERROR" },
         { status: 503 }
       );
     }
@@ -61,16 +85,13 @@ export async function POST(req: NextRequest) {
     const videoId = extractVideoId(url);
     if (!videoId) {
       return NextResponse.json(
-        {
-          error: "Invalid YouTube URL. Please provide a valid YouTube video link.",
-          code: "INVALID_YOUTUBE_URL",
-        },
+        { error: "Invalid YouTube URL. Please provide a valid YouTube video link.", code: "INVALID_YOUTUBE_URL" },
         { status: 400 }
       );
     }
 
     // Check upload quota
-    const quotaCheck = await checkQuota(user.id, "VIDEO_UPLOAD");
+    const quotaCheck = await checkQuota(dbUser.id, "VIDEO_UPLOAD");
     if (!quotaCheck.allowed) {
       return NextResponse.json(
         { error: quotaCheck.reason, code: "QUOTA_EXCEEDED", remaining: quotaCheck.remaining },
@@ -78,21 +99,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if this YouTube video was already imported by this user
+    // Check if already imported
     const existing = await db.video.findFirst({
-      where: {
-        userId: user.id,
-        storageKey: `youtube:${videoId}`,
-      },
+      where: { userId: dbUser.id, storageKey: `youtube:${videoId}` },
     });
 
     if (existing) {
       return NextResponse.json(
-        {
-          error: "This YouTube video has already been imported.",
-          code: "DUPLICATE_IMPORT",
-          videoId: existing.id,
-        },
+        { error: "This YouTube video has already been imported.", code: "DUPLICATE_IMPORT", videoId: existing.id },
         { status: 409 }
       );
     }
@@ -101,41 +115,37 @@ export async function POST(req: NextRequest) {
     const videoTitle = title ? cleanTitle(title) : `YouTube Video (${videoId})`;
     const video = await db.video.create({
       data: {
-        userId: user.id,
+        userId: dbUser.id,
         title: videoTitle,
         fileName: `${videoId}.mp4`,
-        fileSize: 0, // Will be updated after download
+        fileSize: 0,
         mimeType: "video/mp4",
         storageKey: `youtube:${videoId}`,
         storageUrl: `https://www.youtube.com/watch?v=${videoId}`,
         status: "PROCESSING",
-        metadata: {
-          source: "youtube",
-          youtubeId: videoId,
-          originalUrl: url,
-        },
+        metadata: { source: "youtube", youtubeId: videoId, originalUrl: url },
       },
     });
 
-    // Record usage
-    await recordUsage(user.id, "VIDEO_UPLOAD", { videoId: video.id, source: "youtube" });
+    // Record usage (non-blocking)
+    recordUsage(dbUser.id, "VIDEO_UPLOAD", { videoId: video.id, source: "youtube" }).catch(() => {});
 
     // Create transcription job
     const job = await createProcessingJob({
       videoId: video.id,
-      userId: user.id,
+      userId: dbUser.id,
       type: "TRANSCRIPTION",
       options: { source: "youtube", youtubeId: videoId },
     });
 
-    // Send job to queue
-    await sendJob({
+    // Send to queue (non-blocking)
+    sendJob({
       jobId: job.id,
       type: "TRANSCRIPTION",
       videoId: video.id,
-      userId: user.id,
+      userId: dbUser.id,
       options: { source: "youtube", youtubeId: videoId },
-    });
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

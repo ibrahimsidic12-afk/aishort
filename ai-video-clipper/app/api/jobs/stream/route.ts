@@ -52,8 +52,8 @@ export async function GET(req: NextRequest) {
 
       // Poll database and push updates via SSE
       const pollInterval = 1500; // 1.5 seconds
-      let lastStatus = job.status;
-      let lastProgress = job.progress;
+      let lastStatus: string = job.status;
+      let lastProgress: number = job.progress;
 
       const interval = setInterval(async () => {
         try {

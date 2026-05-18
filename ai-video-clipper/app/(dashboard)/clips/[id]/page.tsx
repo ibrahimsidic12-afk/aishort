@@ -1,13 +1,15 @@
 interface ClipDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export default function ClipDetailPage({ params }: ClipDetailPageProps) {
+export default async function ClipDetailPage({ params }: ClipDetailPageProps) {
+  const { id } = await params;
+  
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Clip Details</h1>
-        <p className="text-muted-foreground">Clip ID: {params.id}</p>
+        <p className="text-muted-foreground">Clip ID: {id}</p>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-2">

@@ -1,13 +1,15 @@
 interface VideoDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export default function VideoDetailPage({ params }: VideoDetailPageProps) {
+export default async function VideoDetailPage({ params }: VideoDetailPageProps) {
+  const { id } = await params;
+  
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Video Details</h1>
-        <p className="text-muted-foreground">Video ID: {params.id}</p>
+        <p className="text-muted-foreground">Video ID: {id}</p>
       </div>
 
       {/* Video Player */}

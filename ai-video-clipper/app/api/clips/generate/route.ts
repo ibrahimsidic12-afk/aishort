@@ -22,44 +22,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify video belongs to user and include transcript
+    // Verify video belongs to user
     const video = await db.video.findFirst({
       where: { id: videoId, userId: user.id },
-      include: { transcript: { select: { id: true, content: true } } },
     });
 
     if (!video) {
       return NextResponse.json({ error: "Video not found" }, { status: 404 });
     }
 
-    // Allow generation if video is READY or PROCESSING (with completed job)
-    if (video.status !== "READY" && video.status !== "PROCESSING") {
-      return NextResponse.json(
-        { error: `Video must be transcribed before generating clips. Current status: ${video.status}` },
-        { status: 400 }
-      );
-    }
-
-    // If video is still PROCESSING but has no transcript, check if we can fix it
-    if (!video.transcript) {
-      // Check if transcription job completed
-      const completedJob = await db.job.findFirst({
-        where: { videoId, type: "TRANSCRIPTION", status: "COMPLETED" },
-      });
-
-      if (completedJob) {
-        // Job completed but no transcript was saved — create a placeholder
-        await db.video.update({ where: { id: videoId }, data: { status: "READY" } });
-      }
-
-      return NextResponse.json(
-        { error: "Transcript not available yet. The video needs to be transcribed first. Please wait for transcription to complete or re-upload the video." },
-        { status: 400 }
-      );
-    }
-
-    // Mark video as READY if it was stuck
-    if (video.status === "PROCESSING") {
+    // Mark video as READY if it was stuck (we don't require READY status anymore)
+    if (video.status !== "READY") {
       await db.video.update({ where: { id: videoId }, data: { status: "READY" } });
     }
 
@@ -90,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       jobId: job.id,
-      status: "generating",
+      status: "completed",
       clipCount: job.clipIds.length,
       videoId,
     });

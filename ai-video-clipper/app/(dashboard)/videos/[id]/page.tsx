@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { GenerateClipsButton } from "@/components/video/generate-clips-button";
 
 interface VideoDetailPageProps {
   params: Promise<{ id: string }>;
@@ -125,13 +126,11 @@ export default async function VideoDetailPage({ params }: VideoDetailPageProps) 
               <div className="mt-6 text-center">
                 <p className="text-sm text-muted-foreground">
                   {video.status === "READY"
-                    ? "No clips generated yet. Click below to generate clips."
+                    ? "No clips generated yet."
                     : "Clips will appear here once the video is transcribed."}
                 </p>
                 {video.status === "READY" && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Go to the clips section to generate AI clips from this video.
-                  </p>
+                  <GenerateClipsButton videoId={video.id} maxClips={10} />
                 )}
               </div>
             ) : (

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ClipVideoPlayer } from "./clip-video-player";
 import { ClipCaptionPreview } from "./clip-caption-preview";
+import { ClipDownloadButton } from "./clip-download-button";
 import { ClipEditForm } from "@/components/forms/clip-edit-form";
 
 interface ClipData {
@@ -363,6 +364,14 @@ export function ClipDetailClient({
           >
             Publish Clip
           </button>
+          <ClipDownloadButton
+            clipStorageUrl={clip.storageUrl}
+            videoStorageUrl={video.storageUrl}
+            startTime={clip.startTime}
+            endTime={clip.endTime}
+            title={clip.title}
+            variant="secondary"
+          />
           <button
             onClick={() => setActiveTab("edit")}
             className="w-full rounded-md border px-4 py-2.5 text-sm font-medium hover:bg-secondary"

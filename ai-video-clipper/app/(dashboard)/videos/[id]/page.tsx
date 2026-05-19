@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { GenerateClipsButton } from "@/components/video/generate-clips-button";
+import { ClipsListActions } from "@/components/video/clips-list-actions";
 
 interface VideoDetailPageProps {
   params: Promise<{ id: string }>;
@@ -40,6 +41,9 @@ export default async function VideoDetailPage({ params }: VideoDetailPageProps) 
           id: true,
           title: true,
           duration: true,
+          startTime: true,
+          endTime: true,
+          storageUrl: true,
           score: true,
           viralityScore: true,
           status: true,
@@ -160,6 +164,17 @@ export default async function VideoDetailPage({ params }: VideoDetailPageProps) 
                     </span>
                   </Link>
                 ))}
+                <ClipsListActions
+                  clips={video.clips.map((c) => ({
+                    id: c.id,
+                    title: c.title,
+                    startTime: c.startTime,
+                    endTime: c.endTime,
+                    storageUrl: c.storageUrl,
+                  }))}
+                  videoStorageUrl={video.storageUrl}
+                  videoTitle={video.title}
+                />
               </div>
             )}
           </div>

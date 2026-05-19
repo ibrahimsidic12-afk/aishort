@@ -5,6 +5,7 @@ import Link from "next/link";
 import { GenerateClipsButton } from "@/components/video/generate-clips-button";
 import { ClipsListActions } from "@/components/video/clips-list-actions";
 import { isPlayableMediaUrl } from "@/lib/media/url";
+import { formatDate } from "@/lib/format";
 
 // Always render per-request — video data is per-user and changes often.
 export const dynamic = "force-dynamic";
@@ -86,7 +87,7 @@ export default async function VideoDetailPage({ params }: VideoDetailPageProps) 
             {video.duration && <span>{Math.round(video.duration / 60)} min</span>}
             <span>{(video.fileSize / (1024 * 1024)).toFixed(0)} MB</span>
             <span>{video.mimeType}</span>
-            <span>Uploaded {new Date(video.createdAt).toLocaleDateString()}</span>
+            <span>Uploaded {formatDate(video.createdAt)}</span>
           </div>
         </div>
         <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${statusCfg.bg} ${statusCfg.text}`}>
@@ -226,7 +227,7 @@ export default async function VideoDetailPage({ params }: VideoDetailPageProps) 
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Uploaded</dt>
-                <dd className="font-medium">{new Date(video.createdAt).toLocaleDateString()}</dd>
+                <dd className="font-medium">{formatDate(video.createdAt)}</dd>
               </div>
             </dl>
           </div>

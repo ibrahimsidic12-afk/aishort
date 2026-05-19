@@ -7,6 +7,7 @@ import { ClipVideoPlayer } from "./clip-video-player";
 import { ClipCaptionPreview } from "./clip-caption-preview";
 import { ClipDownloadButton } from "./clip-download-button";
 import { ClipEditForm } from "@/components/forms/clip-edit-form";
+import { formatDate } from "@/lib/format";
 
 interface ClipData {
   id: string;
@@ -215,7 +216,7 @@ export function ClipDetailClient({
                 </div>
                 <div>
                   <span className="text-muted-foreground">Created:</span>{" "}
-                  {new Date(clip.createdAt).toLocaleDateString()}
+                  {formatDate(clip.createdAt)}
                 </div>
               </div>
             </div>

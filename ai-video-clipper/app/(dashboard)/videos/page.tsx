@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { formatDate } from "@/lib/format";
 import Link from "next/link";
 
 // Always render per-request — video data is per-user and changes often.
@@ -141,7 +142,7 @@ export default async function VideosPage({ searchParams }: { searchParams: Promi
                     )}
                     <span>{(video.fileSize / (1024 * 1024)).toFixed(0)} MB</span>
                     <span>{video._count.clips} clip{video._count.clips !== 1 ? "s" : ""}</span>
-                    <span>{new Date(video.createdAt).toLocaleDateString()}</span>
+                    <span>{formatDate(video.createdAt)}</span>
                   </div>
                 </div>
 

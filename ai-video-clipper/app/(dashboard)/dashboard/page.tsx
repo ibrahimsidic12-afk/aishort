@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { getUserUsageStats } from "@/lib/quota";
+import { formatDate } from "@/lib/format";
 import Link from "next/link";
 
 // Force dynamic rendering — this page reads per-user data on every request.
@@ -276,7 +277,7 @@ export default async function DashboardPage() {
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {video.duration ? `${Math.round(video.duration / 60)} min` : "Processing"} &middot;{" "}
                       {video._count.clips} clips &middot;{" "}
-                      {new Date(video.createdAt).toLocaleDateString()}
+                      {formatDate(video.createdAt)}
                     </p>
                   </div>
                   <StatusBadge status={video.status} />
@@ -305,7 +306,7 @@ export default async function DashboardPage() {
                     {job.type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(job.createdAt).toLocaleDateString()}
+                    {formatDate(job.createdAt)}
                   </p>
                 </div>
                 <JobStatusBadge status={job.status} />

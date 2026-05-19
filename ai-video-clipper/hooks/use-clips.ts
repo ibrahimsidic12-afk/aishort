@@ -29,15 +29,15 @@ export function useClips(videoId?: string) {
   const generateClips = async (videoId: string, preferences?: Record<string, unknown>) => {
     const res = await fetch("/api/clips/generate", {
       method: "POST",
-      body: JSON.stringify({ videoId, preferences }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ videoId, options: preferences }),
     });
     return res.json();
   };
 
   const deleteClip = async (clipId: string) => {
-    await fetch("/api/clips/delete", {
+    await fetch(`/api/clips/delete?clipId=${clipId}`, {
       method: "DELETE",
-      body: JSON.stringify({ clipId }),
     });
     setClips((prev) => prev.filter((c) => c.id !== clipId));
   };

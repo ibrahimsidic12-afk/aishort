@@ -104,7 +104,10 @@ async function processJobDirectly(payload: JobPayload): Promise<void> {
       });
     }
 
-    // Would call appropriate processor based on payload.type
+    // Run transcription if that's the job type
+    if (payload.type === "TRANSCRIPTION" && payload.videoId) {
+      await runTranscription(payload.videoId);
+    }
 
     if (payload.jobId) {
       await prisma.job.update({
@@ -142,6 +145,118 @@ async function processJobDirectly(payload: JobPayload): Promise<void> {
       });
     }
   }
+}
+
+/**
+ * Run Deepgram transcription on a video
+ */
+async function runTranscription(videoId: string): Promise<void> {
+  const apiKey = process.env.DEEPGRAM_API_KEY;
+  if (!apiKey) {
+    throw new Error("DEEPGRAM_API_KEY not configured");
+  }
+
+  const video = await prisma.video.findUnique({ where: { id: videoId } });
+  if (!video || !video.storageUrl) {
+    throw new Error("Video or storage URL not found");
+  }
+
+  // Update video status
+  await prisma.video.update({
+    where: { id: videoId },
+    data: { status: "TRANSCRIBING" },
+  });
+
+  // Call Deepgram API directly (REST)
+  const response = await fetch("https://api.deepgram.com/v1/listen?punctuate=true&smart_format=true&language=en&model=nova-2", {
+    method: "POST",
+    headers: {
+      "Authorization": `Token ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ url: video.storageUrl }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Deepgram API error ${response.status}: ${errText}`);
+  }
+
+  const data = await response.json();
+  const results = data?.results;
+  const channels = results?.channels?.[0];
+  const alternatives = channels?.alternatives?.[0];
+
+  if (!alternatives) {
+    throw new Error("No transcription results returned from Deepgram");
+  }
+
+  const fullText = alternatives.transcript || "";
+  const words = alternatives.words || [];
+  const duration = data?.metadata?.duration || video.duration || 0;
+
+  // Build segments from words (group into ~5 second chunks)
+  const segments: Array<{ start: number; end: number; text: string; confidence: number }> = [];
+  let currentSegment = { start: 0, end: 0, text: "", confidence: 0, wordCount: 0 };
+
+  for (const word of words) {
+    if (currentSegment.wordCount === 0) {
+      currentSegment.start = word.start;
+    }
+    currentSegment.end = word.end;
+    currentSegment.text += (currentSegment.text ? " " : "") + word.punctuated_word || word.word;
+    currentSegment.confidence += word.confidence || 0.9;
+    currentSegment.wordCount++;
+
+    // Split every ~10 words or at sentence boundaries
+    const endsWithPunct = /[.!?]$/.test(currentSegment.text);
+    if (currentSegment.wordCount >= 10 || endsWithPunct) {
+      segments.push({
+        start: currentSegment.start,
+        end: currentSegment.end,
+        text: currentSegment.text.trim(),
+        confidence: currentSegment.confidence / currentSegment.wordCount,
+      });
+      currentSegment = { start: 0, end: 0, text: "", confidence: 0, wordCount: 0 };
+    }
+  }
+
+  // Push remaining words
+  if (currentSegment.wordCount > 0) {
+    segments.push({
+      start: currentSegment.start,
+      end: currentSegment.end,
+      text: currentSegment.text.trim(),
+      confidence: currentSegment.confidence / currentSegment.wordCount,
+    });
+  }
+
+  // Save transcript to DB
+  await prisma.transcript.upsert({
+    where: { videoId },
+    create: {
+      videoId,
+      content: fullText,
+      segments: segments as any,
+      language: "en",
+      provider: "DEEPGRAM",
+    },
+    update: {
+      content: fullText,
+      segments: segments as any,
+      language: "en",
+    },
+  });
+
+  // Update video duration if we got it
+  if (duration > 0) {
+    await prisma.video.update({
+      where: { id: videoId },
+      data: { duration },
+    });
+  }
+
+  console.log(`[Queue] Transcription complete: ${segments.length} segments, ${Math.round(duration)}s`);
 }
 
 /**

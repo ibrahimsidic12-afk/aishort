@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
-import { isPlayableMediaUrl } from "@/lib/media/url";
+import { isPlayableMediaUrl, resolveThumbnailUrl } from "@/lib/media/url";
 
 interface ClipVideoPlayerProps {
   videoUrl: string | null;
@@ -24,6 +24,10 @@ export function ClipVideoPlayer({
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const playable = isPlayableMediaUrl(videoUrl);
+  // Defend against legacy data: a YouTube watch URL stored in
+  // `thumbnailUrl` would 400 if rendered as an image. Resolve it through
+  // our /api/youtube/thumbnail proxy or refuse to render.
+  const safeThumbnailUrl = resolveThumbnailUrl(thumbnailUrl);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -118,8 +122,13 @@ export function ClipVideoPlayer({
   if (!playable) {
     return (
       <div className="relative aspect-video overflow-hidden rounded-lg border bg-muted">
-        {thumbnailUrl ? (
-          <img src={thumbnailUrl} alt="Clip thumbnail" className="h-full w-full object-cover" />
+        {safeThumbnailUrl ? (
+          <img
+            src={safeThumbnailUrl}
+            alt="Clip thumbnail"
+            className="h-full w-full object-cover"
+            onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+          />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
@@ -160,11 +169,12 @@ export function ClipVideoPlayer({
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
             </svg>
             <p className="font-medium">{loadError}</p>
-            {thumbnailUrl && (
+            {safeThumbnailUrl && (
               <img
-                src={thumbnailUrl}
+                src={safeThumbnailUrl}
                 alt="Clip thumbnail"
                 className="mt-1 max-h-24 rounded opacity-60"
+                onError={(e) => { e.currentTarget.style.display = "none"; }}
               />
             )}
           </div>

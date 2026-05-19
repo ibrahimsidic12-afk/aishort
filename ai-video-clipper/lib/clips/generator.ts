@@ -63,6 +63,26 @@ export async function generateClips(input: {
       segments = generateFallbackSegments(video.duration || 600, maxClips, minDuration, maxDuration);
     }
 
+    // Derive a real thumbnail URL when possible. For YouTube imports, the
+    // `Video.metadata.youtubeId` field carries the id, and YouTube exposes
+    // a stable thumbnail at i.ytimg.com/vi/<id>/mqdefault.jpg. We route
+    // through our own proxy (`/api/youtube/thumbnail`) so the request is
+    // first-party (avoids strict tracking-prevention blocks) and so that
+    // `<Image>` consumers don't need extra `remotePatterns` entries.
+    //
+    // For non-YouTube videos we leave thumbnailUrl null until the
+    // thumbnail-worker has a chance to extract a real frame. A null
+    // thumbnail renders as a placeholder; a wrong page URL renders as a
+    // 400 from /_next/image, which is what we're fixing here.
+    const youtubeId =
+      typeof video.metadata === "object" && video.metadata !== null
+        ? (video.metadata as Record<string, unknown>).youtubeId
+        : null;
+    const derivedThumbnailUrl =
+      typeof youtubeId === "string" && /^[a-zA-Z0-9_-]{11}$/.test(youtubeId)
+        ? `/api/youtube/thumbnail?id=${youtubeId}&q=mqdefault`
+        : null;
+
     // Create clip records
     const clips = await Promise.all(
       segments.map(async (segment: ValidatedClipSegment, index: number) => {
@@ -80,7 +100,7 @@ export async function generateClips(input: {
             viralityScore: segment.viralityScore ?? 70,
             tags: segment.tags || [],
             storageUrl: video.storageUrl,
-            thumbnailUrl: video.storageUrl,
+            thumbnailUrl: derivedThumbnailUrl,
           }
         });
       })

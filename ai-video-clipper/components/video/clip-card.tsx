@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import type { Clip } from "@/types";
 import { ClipDownloadButton } from "@/components/clips/clip-download-button";
+import { resolveThumbnailUrl } from "@/lib/media/url";
 
 interface ClipCardProps {
   clip: Clip;
@@ -35,6 +37,21 @@ function getScoreRingColor(score: number): string {
 }
 
 export function ClipCard({ clip, selected, onSelect }: ClipCardProps) {
+  // Sanitize whatever we have stored in the DB. `resolveThumbnailUrl`
+  // returns null for non-image URLs (e.g. legacy clips that copied a
+  // YouTube watch URL into thumbnailUrl) — that prevents `<Image>` from
+  // calling `/_next/image?url=...` with a page URL and getting a 400.
+  const safeThumbnail = resolveThumbnailUrl(clip.thumbnailUrl);
+  const [thumbBroken, setThumbBroken] = useState(false);
+  const showThumbnail = !!safeThumbnail && !thumbBroken;
+
+  // `next/image` only optimizes absolute URLs against `images.remotePatterns`.
+  // Same-origin URLs (e.g. our `/api/youtube/thumbnail?id=...` proxy) bypass
+  // that allowlist, but we can also render them via plain <img> to skip the
+  // optimizer entirely. We pick `unoptimized` for proxy URLs so the
+  // optimizer doesn't double-fetch through itself.
+  const isProxiedThumbnail = !!safeThumbnail && safeThumbnail.startsWith("/api/");
+
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = Math.round(seconds % 60);
@@ -79,13 +96,17 @@ export function ClipCard({ clip, selected, onSelect }: ClipCardProps) {
 
       {/* Thumbnail */}
       <div className="relative aspect-[9/16] overflow-hidden bg-gradient-to-br from-muted to-muted/50">
-        {clip.thumbnailUrl ? (
+        {showThumbnail ? (
           <Image
-            src={clip.thumbnailUrl}
+            src={safeThumbnail!}
             alt={clip.title}
             fill
+            // Skip the Next.js optimizer for our same-origin proxy URL so it
+            // can't re-enter `/_next/image` and retry-fail.
+            unoptimized={isProxiedThumbnail}
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            onError={() => setThumbBroken(true)}
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground/60">

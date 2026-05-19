@@ -34,19 +34,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Video not found" }, { status: 404 });
     }
 
-    // Mark video as READY if it was stuck
-    if (video.status !== "READY") {
-      await db.video.update({ where: { id: videoId }, data: { status: "READY" } });
-    }
-
-    // Transcribe with Deepgram if no transcript exists yet
+    // Transcribe with Deepgram if no transcript exists yet. We do this
+    // first because the AI clip generator works much better with a real
+    // transcript than with the evenly-spaced fallback. The function
+    // updates `Video.status` itself on success (READY) and on failure
+    // (ERROR) so we don't second-guess it here.
     if (!video.transcript?.content && video.storageUrl) {
       console.log("[GENERATE] No transcript, transcribing with Deepgram...");
       try {
         await transcribeWithDeepgram(videoId, video.storageUrl);
       } catch (transcribeError) {
-        console.warn("[GENERATE] Transcription failed, continuing with fallback clips:", transcribeError);
+        console.warn(
+          "[GENERATE] Transcription failed, continuing with fallback clips:",
+          transcribeError
+        );
+        // Don't bail — we still produce evenly-spaced fallback clips
+        // below, which is better than failing the request entirely.
       }
+    } else if (video.status !== "READY") {
+      // If a transcript already exists, the only reason status would not
+      // be READY is a previous worker bug. Self-heal in that case.
+      await db.video.update({ where: { id: videoId }, data: { status: "READY" } });
     }
 
     // Check user's clip generation quota

@@ -4,9 +4,31 @@
  */
 
 import { prisma } from "@/lib/db/prisma";
-import { createClient, DeepgramClient } from "@deepgram/sdk";
+import { createClient, type DeepgramClient } from "@deepgram/sdk";
 
-const deepgram: DeepgramClient = createClient(process.env.DEEPGRAM_API_KEY!);
+/**
+ * Lazy-initialized Deepgram client.
+ *
+ * Top-level `createClient(process.env.DEEPGRAM_API_KEY!)` made the module
+ * crash at import time when the env var was absent (the `!` lies). That
+ * cascaded into Next.js build failures and dev-mode crashes whenever this
+ * file was reached transitively. Lazy init lets the module load anywhere
+ * and only fails at the point where transcription is actually attempted,
+ * with a clean error message.
+ */
+let _deepgram: DeepgramClient | null = null;
+
+function getDeepgram(): DeepgramClient {
+  if (_deepgram) return _deepgram;
+  const apiKey = process.env.DEEPGRAM_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "DEEPGRAM_API_KEY is not configured. Set it in the deployment environment to enable transcription."
+    );
+  }
+  _deepgram = createClient(apiKey);
+  return _deepgram;
+}
 
 interface TranscriptionResult {
   text: string;
@@ -37,7 +59,7 @@ export async function transcribeWithWhisper(
   console.log(`[Whisper/Deepgram] Transcribing: ${audioUrl}`);
 
   try {
-    const response = await deepgram.transcription.complete({
+    const response = await getDeepgram().transcription.complete({
       url: audioUrl,
       language: language || "en",
       punctuate: options?.punctuate ?? true,
@@ -102,6 +124,13 @@ export async function transcribeAndSave(videoId: string): Promise<string> {
     throw new Error(`Video has no storage URL: ${videoId}`);
   }
 
+  // Mark transcribing BEFORE the (slow) Deepgram call, so the UI shows
+  // the right status while the request is in flight.
+  await prisma.video.update({
+    where: { id: videoId },
+    data: { status: "TRANSCRIBING" },
+  });
+
   const result = await transcribeWithWhisper(audioUrl);
 
   const transcript = await prisma.transcript.upsert({
@@ -120,11 +149,15 @@ export async function transcribeAndSave(videoId: string): Promise<string> {
     },
   });
 
+  // Now that the transcript row exists, flip the video to READY and
+  // record the duration we got back from Deepgram. Previously this set
+  // status to TRANSCRIBING — backwards: the transcript was already saved,
+  // and the UI was left thinking work was still in flight forever.
   await prisma.video.update({
     where: { id: videoId },
     data: {
-      status: "TRANSCRIBING",
-      duration: result.duration,
+      status: "READY",
+      duration: result.duration || video.duration,
     },
   });
 

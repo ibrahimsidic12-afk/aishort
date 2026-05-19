@@ -93,8 +93,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Record usage (non-blocking)
-    recordUsage(dbUser.id, "VIDEO_UPLOAD", { videoId: video.id, source: "youtube" }).catch(() => {});
+    // Record usage (non-blocking — the upload itself was already counted
+    // by the quota check, this is just analytics/audit metadata).
+    recordUsage(dbUser.id, "VIDEO_UPLOAD", { videoId: video.id, source: "youtube" }).catch(
+      (err) => console.error("[IMPORT_YOUTUBE] recordUsage failed:", err)
+    );
 
     // Create transcription job
     const job = await createProcessingJob({
@@ -104,14 +107,16 @@ export async function POST(req: NextRequest) {
       options: { source: "youtube", youtubeId: videoId },
     });
 
-    // Send to queue (non-blocking)
+    // Send to queue (non-blocking, but we surface failures rather than
+    // dropping them silently). If the queue send fails the video stays
+    // in PROCESSING; a retry endpoint or background sweep can pick it up.
     sendJob({
       jobId: job.id,
       type: "TRANSCRIPTION",
       videoId: video.id,
       userId: dbUser.id,
       options: { source: "youtube", youtubeId: videoId },
-    }).catch(() => {});
+    }).catch((err) => console.error("[IMPORT_YOUTUBE] sendJob failed:", err));
 
     return NextResponse.json({
       success: true,

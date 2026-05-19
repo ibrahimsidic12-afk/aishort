@@ -25,7 +25,13 @@ export interface JobPayload {
 const qstashBaseUrl = process.env.QSTASH_URL || "https://qstash.upstash.io";
 
 /**
- * Create a processing job in the database
+ * Create a processing job in the database.
+ *
+ * Note: input `options` are passed directly to the worker via `sendJob`,
+ * not stored on the row. The previous version stuffed `opts.options` into
+ * the `Job.result` JSON column which is semantically wrong — `result` is
+ * for the post-completion output. Workers/UIs reading `Job.result` for a
+ * QUEUED job would see input options pretending to be results.
  */
 export async function createProcessingJob(opts: CreateJobOpts): Promise<{ id: string; status: string; type: string; createdAt: Date }> {
   const job = await prisma.job.create({
@@ -34,7 +40,6 @@ export async function createProcessingJob(opts: CreateJobOpts): Promise<{ id: st
       videoId: opts.videoId,
       type: opts.type as any,
       status: "QUEUED",
-      result: opts.options as object | undefined,
     },
   });
 
@@ -43,11 +48,19 @@ export async function createProcessingJob(opts: CreateJobOpts): Promise<{ id: st
 }
 
 /**
- * Send a job to QStash for async processing
+ * Send a job to QStash for async processing.
+ *
+ * QStash needs a destination URL to deliver the message to. Our destination
+ * is the same webhook handler that knows how to dispatch by `payload.type`.
+ *
+ * Note: the QStash REST endpoint is `${qstashBaseUrl}/v2/publish/${url}`,
+ * not the bare base URL. Sending to the wrong path used to silently
+ * 404 / 4xx and fall through to the synchronous path; we now use the
+ * official endpoint shape so the queue actually engages when configured.
  */
 export async function sendJob(payload: JobPayload): Promise<string> {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const callbackUrl = `${appUrl}/api/webhooks/qstash`;
+  const webhookUrl = `${appUrl}/api/webhooks/qstash`;
 
   const body = JSON.stringify(payload);
   const token = process.env.QSTASH_TOKEN || process.env.QSTASH_CURRENT_SIGNING_KEY || "";
@@ -59,32 +72,32 @@ export async function sendJob(payload: JobPayload): Promise<string> {
   }
 
   try {
-    const response = await fetch(qstashBaseUrl, {
+    // QStash v2 publish API: POST {qstashBaseUrl}/v2/publish/{destinationUrl}
+    // with the message body as the request body. The destination must be a
+    // real URL — using `payload.type` (e.g. "TRANSCRIPTION") was a silent
+    // 4xx every time.
+    const publishUrl = `${qstashBaseUrl.replace(/\/$/, "")}/v2/publish/${encodeURIComponent(webhookUrl)}`;
+    const response = await fetch(publishUrl, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
         "Upstash-Deduplication-Id": payload.jobId || `job_${Date.now()}`,
-        "Upstash-Callback": callbackUrl,
+        "Upstash-Retries": "3",
       },
-      body: JSON.stringify({
-        destination: payload.type,
-        body,
-        retries: 3,
-        delay: 0,
-      }),
+      body,
     });
 
     if (!response.ok) {
-      throw new Error(`QStash error: ${response.status}`);
+      const errText = await response.text().catch(() => "");
+      throw new Error(`QStash error ${response.status}: ${errText.slice(0, 200)}`);
     }
 
-    const result = await response.json() as { messageId: string };
+    const result = (await response.json()) as { messageId: string };
     console.log(`[Queue] Sent job to QStash: ${result.messageId}`);
     return result.messageId;
-
   } catch (error) {
-    console.error("[Queue] Failed to send to QStash:", error);
+    console.error("[Queue] Failed to send to QStash, falling back to sync:", error);
     await processJobDirectly(payload);
     return payload.jobId || `fallback_${Date.now()}`;
   }
@@ -204,7 +217,12 @@ async function runTranscription(videoId: string): Promise<void> {
       currentSegment.start = word.start;
     }
     currentSegment.end = word.end;
-    currentSegment.text += (currentSegment.text ? " " : "") + word.punctuated_word || word.word;
+    // The `||` fallback must apply to `word.punctuated_word || word.word`
+    // BEFORE concatenation — without the inner parens the operator
+    // precedence makes `||` consume the entire concatenation, so when
+    // `punctuated_word` is empty the segment text gets clobbered.
+    const tokenText = word.punctuated_word || word.word || "";
+    currentSegment.text += (currentSegment.text ? " " : "") + tokenText;
     currentSegment.confidence += word.confidence || 0.9;
     currentSegment.wordCount++;
 

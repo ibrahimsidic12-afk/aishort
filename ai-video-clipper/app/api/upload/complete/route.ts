@@ -32,7 +32,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create video record in database
+    // Create video record in database. We mark it PROCESSING immediately
+    // because the next thing we do is enqueue a transcription job — there
+    // is no real "UPLOADING" interval after this point. Previously this
+    // wrote `UPLOADING` and then immediately overwrote it with `PROCESSING`
+    // a few lines later in the same request.
     const storageUrl = getPublicUrl(key);
     const video = await db.video.create({
       data: {
@@ -43,7 +47,7 @@ export async function POST(req: NextRequest) {
         fileSize: fileSize || 0,
         title: fileName.replace(/\.[^/.]+$/, "") || "Untitled",
         mimeType: mimeType || "video/mp4",
-        status: "UPLOADING",
+        status: "PROCESSING",
       },
     });
 
@@ -57,19 +61,17 @@ export async function POST(req: NextRequest) {
       type: "TRANSCRIPTION",
     });
 
-    // Send job to queue for processing
-    await sendJob({
+    // Send job to queue for processing.
+    // Don't `await` — the queue's sync fallback can take minutes for long
+    // videos and would block this HTTP response. Surface failures via
+    // logs; the dashboard's job list will reflect any QUEUED→FAILED
+    // transitions.
+    sendJob({
       jobId: job.id,
       type: "TRANSCRIPTION",
       videoId: video.id,
       userId: user.id,
-    });
-
-    // Update video status
-    await db.video.update({
-      where: { id: video.id },
-      data: { status: "PROCESSING" },
-    });
+    }).catch((err) => console.error("[UPLOAD_COMPLETE] sendJob failed:", err));
 
     return NextResponse.json({
       success: true,

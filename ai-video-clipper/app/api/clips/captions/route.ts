@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth/session";
-import { getCaptions, updateCaptions } from "@/lib/clips/captions";
+// IMPORTANT: import from `lib/clips/generator`, not `lib/clips/captions`.
+// `lib/clips/captions.ts` was an early stub that returned empty arrays for
+// every clip; the real transcript-slicing implementation lives next to
+// `generateClips` in the generator module. The two files share the same
+// function names, so the wrong import compiled fine and silently broke
+// every captions request.
+import { getCaptions, updateCaptions } from "@/lib/clips/generator";
 import { db } from "@/lib/db";
 
 export async function GET(req: NextRequest) {

@@ -4,6 +4,10 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ClipDetailClient } from "@/components/clips/clip-detail-client";
 
+// Always render per-request — clip data is per-user and changes often.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 interface ClipDetailPageProps {
   params: Promise<{ id: string }>;
 }

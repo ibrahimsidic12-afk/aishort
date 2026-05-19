@@ -5,6 +5,10 @@ import { ClipsFilters } from "@/components/clips/clips-filters";
 import { ClipsPagination } from "@/components/clips/clips-pagination";
 import { ClipsBulkActions } from "@/components/clips/clips-bulk-actions";
 
+// Always render per-request — clip data is per-user and changes often.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const PAGE_SIZE = 12;
 
 export default async function ClipsPage({ searchParams }: { searchParams: Promise<{ status?: string; sort?: string; search?: string; page?: string }> }) {

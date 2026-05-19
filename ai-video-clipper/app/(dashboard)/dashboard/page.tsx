@@ -3,6 +3,12 @@ import { db } from "@/lib/db";
 import { getUserUsageStats } from "@/lib/quota";
 import Link from "next/link";
 
+// Force dynamic rendering — this page reads per-user data on every request.
+// Without this, Next.js may attempt to prerender during build and surface
+// the resulting Prisma error as a non-2xx response at runtime.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) {

@@ -6,6 +6,10 @@ import { GenerateClipsButton } from "@/components/video/generate-clips-button";
 import { ClipsListActions } from "@/components/video/clips-list-actions";
 import { isPlayableMediaUrl } from "@/lib/media/url";
 
+// Always render per-request — video data is per-user and changes often.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 interface VideoDetailPageProps {
   params: Promise<{ id: string }>;
 }

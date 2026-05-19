@@ -25,7 +25,12 @@ export function YouTubeImport() {
 
   const videoId = url.match(YOUTUBE_URL_REGEX)?.[1] || null;
   const isValidUrl = !!videoId;
-  const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null;
+  // Proxy through our own origin so browsers with strict tracking
+  // prevention (Edge / Brave / strict Firefox) don't block the request.
+  // See app/api/youtube/thumbnail/route.ts for the proxy implementation.
+  const thumbnailUrl = videoId
+    ? `/api/youtube/thumbnail?id=${encodeURIComponent(videoId)}&q=mqdefault`
+    : null;
 
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     const pasted = e.clipboardData.getData("text");
@@ -136,7 +141,13 @@ export function YouTubeImport() {
               <img
                 src={thumbnailUrl}
                 alt="Video thumbnail"
-                className="h-16 w-28 shrink-0 rounded-md object-cover"
+                className="h-16 w-28 shrink-0 rounded-md object-cover bg-muted"
+                onError={(e) => {
+                  // If the proxy fails, hide the broken-image icon by
+                  // collapsing the element into a neutral placeholder.
+                  const img = e.currentTarget;
+                  img.style.visibility = "hidden";
+                }}
               />
               <div className="min-w-0 flex-1">
                 <p className="text-xs text-muted-foreground">YouTube Video</p>

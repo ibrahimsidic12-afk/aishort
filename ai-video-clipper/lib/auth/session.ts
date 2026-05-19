@@ -14,61 +14,50 @@ export interface SessionUser {
 const ANONYMOUS_USER_CLERK_ID = "anonymous-shared-user";
 const ANONYMOUS_USER_EMAIL = "anonymous@aishort.local";
 
+const ANONYMOUS_USER_SELECT = {
+  id: true,
+  clerkId: true,
+  email: true,
+  name: true,
+  avatarUrl: true,
+  plan: true,
+  credits: true,
+} as const;
+
 /**
- * Returns a shared anonymous user (no auth required).
- * Auto-creates the user in DB on first call.
+ * Returns the shared anonymous user (no auth required).
+ *
+ * Uses Prisma `upsert` so concurrent first-time requests can't race against
+ * each other and trigger a P2002 unique-constraint violation on
+ * `clerkId`/`email`. Previous implementation did `findUnique` then
+ * `create` — non-atomic, so two parallel cold-start RSC requests would
+ * both see `null` and both attempt `create`, with one failing.
+ *
+ * Returns `null` only if the database itself is unreachable; callers
+ * should render a soft fallback rather than throwing.
  */
 export async function getCurrentUser(): Promise<SessionUser | null> {
   try {
-    let user: any = null;
-
-    try {
-      user = await db.user.findUnique({
-        where: { clerkId: ANONYMOUS_USER_CLERK_ID },
-        select: {
-          id: true,
-          clerkId: true,
-          email: true,
-          name: true,
-          avatarUrl: true,
-          plan: true,
-          credits: true,
-        },
-      });
-    } catch (dbError) {
-      console.error("[AUTH] DB query failed:", dbError);
-      return null;
-    }
-
-    if (!user) {
-      try {
-        user = await db.user.create({
-          data: {
-            clerkId: ANONYMOUS_USER_CLERK_ID,
-            email: ANONYMOUS_USER_EMAIL,
-            name: "Anonymous User",
-            avatarUrl: null,
-            plan: "BUSINESS",
-            credits: 999999,
-          },
-          select: {
-            id: true,
-            clerkId: true,
-            email: true,
-            name: true,
-            avatarUrl: true,
-            plan: true,
-            credits: true,
-          },
-        });
-      } catch (createError) {
-        console.error("[AUTH] Failed to create anonymous user:", createError);
-        return null;
-      }
-    }
+    const user = await db.user.upsert({
+      where: { clerkId: ANONYMOUS_USER_CLERK_ID },
+      update: {}, // no-op; we just want the existing row
+      create: {
+        clerkId: ANONYMOUS_USER_CLERK_ID,
+        email: ANONYMOUS_USER_EMAIL,
+        name: "Anonymous User",
+        avatarUrl: null,
+        plan: "BUSINESS",
+        credits: 999999,
+      },
+      select: ANONYMOUS_USER_SELECT,
+    });
 
     return { ...user, connectedAccounts: {} };
   } catch (error) {
+    // The most common failure here is a DB connection error during cold
+    // start (Neon/Supabase serverless wake-up) or migrations being out of
+    // sync. Don't bubble — let the caller render a graceful fallback so
+    // the request never returns a non-2xx status.
     console.error("[AUTH] getCurrentUser failed:", error);
     return null;
   }

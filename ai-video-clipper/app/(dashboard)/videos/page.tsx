@@ -2,6 +2,10 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import Link from "next/link";
 
+// Always render per-request — video data is per-user and changes often.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const PAGE_SIZE = 10;
 
 const STATUS_CONFIG: Record<string, { bg: string; text: string; dot: string }> = {

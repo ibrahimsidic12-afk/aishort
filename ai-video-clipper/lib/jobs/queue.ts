@@ -113,6 +113,15 @@ async function processJobDirectly(payload: JobPayload): Promise<void> {
       });
     }
 
+    // Update video status based on job type
+    if (payload.type === "TRANSCRIPTION" && payload.videoId) {
+      await prisma.video.update({
+        where: { id: payload.videoId },
+        data: { status: "READY" },
+      });
+      console.log(`[Queue] Video marked READY: ${payload.videoId}`);
+    }
+
   } catch (error) {
     console.error("[Queue] Direct processing failed:", error);
     if (payload.jobId) {
@@ -123,6 +132,13 @@ async function processJobDirectly(payload: JobPayload): Promise<void> {
           error: error instanceof Error ? error.message : "Unknown error",
           completedAt: new Date() 
         },
+      });
+    }
+    // Mark video as error if transcription failed
+    if (payload.type === "TRANSCRIPTION" && payload.videoId) {
+      await prisma.video.update({
+        where: { id: payload.videoId },
+        data: { status: "ERROR" },
       });
     }
   }

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
-import { UserButton } from "@clerk/nextjs";
 
 const BREADCRUMB_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
@@ -138,16 +137,9 @@ export function Navbar() {
         Upload
       </Link>
 
-      {/* User */}
-      <div className="flex items-center">
-        <UserButton
-          afterSignOutUrl="/"
-          appearance={{
-            elements: {
-              avatarBox: "h-8 w-8 rounded-lg ring-2 ring-border",
-            },
-          }}
-        />
+      {/* User avatar placeholder */}
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 ring-2 ring-border">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
       </div>
     </header>
   );

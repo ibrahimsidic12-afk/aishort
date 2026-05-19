@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { auth, currentUser } from "@clerk/nextjs/server";
 
 import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth/session";
 import { checkQuota, recordUsage } from "@/lib/quota";
 import { createProcessingJob, sendJob } from "@/lib/jobs/queue";
 
@@ -24,52 +24,11 @@ function cleanTitle(title: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    // Authenticate with Clerk
-    const { userId: clerkUserId } = await auth();
-    if (!clerkUserId) {
+    // Get anonymous user (no auth required)
+    const dbUser = await getCurrentUser();
+    if (!dbUser) {
       return NextResponse.json(
-        { error: "Please sign in to import videos.", code: "UNAUTHORIZED" },
-        { status: 401 }
-      );
-    }
-
-    // Find or create user in DB
-    let dbUser: { id: string; plan: string; credits: number } | null = null;
-    try {
-      dbUser = await db.user.findUnique({
-        where: { clerkId: clerkUserId },
-        select: { id: true, plan: true, credits: true },
-      });
-
-      if (!dbUser) {
-        // Auto-create user from Clerk data
-        const clerkUser = await currentUser();
-        const email = clerkUser?.emailAddresses?.[0]?.emailAddress || `${clerkUserId}@user.local`;
-        const name = clerkUser ? [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") : null;
-
-        dbUser = await db.user.create({
-          data: {
-            clerkId: clerkUserId,
-            email,
-            name: name || null,
-            avatarUrl: clerkUser?.imageUrl || null,
-            plan: "FREE",
-            credits: 10,
-          },
-          select: { id: true, plan: true, credits: true },
-        });
-      }
-    } catch (dbError) {
-      console.error("[IMPORT_YOUTUBE] DB error:", dbError);
-      const errMsg = dbError instanceof Error ? dbError.message : String(dbError);
-      const isTableMissing = errMsg.includes("does not exist") || errMsg.includes("relation") || errMsg.includes("P2021");
-      return NextResponse.json(
-        { 
-          error: isTableMissing 
-            ? "Database tables not found. Please run 'npx prisma db push' to set up the schema." 
-            : "Database connection failed. Please ensure DATABASE_URL is configured correctly.", 
-          code: "DB_ERROR" 
-        },
+        { error: "Database connection failed.", code: "DB_ERROR" },
         { status: 503 }
       );
     }

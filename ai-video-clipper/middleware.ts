@@ -1,68 +1,45 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const isProtectedRoute = createRouteMatcher([
-  "/dashboard(.*)",
-  "/uploads(.*)",
-  "/videos(.*)",
-  "/clips(.*)",
-  "/review(.*)",
-  "/analytics(.*)",
-  "/team(.*)",
-  "/settings(.*)",
-]);
+/**
+ * Simple middleware - auth disabled, everyone is anonymous user
+ * Redirects auth pages and home to dashboard
+ */
+export default async function middleware(req: NextRequest) {
+  const pathname = req.nextUrl.pathname;
 
-const isAuthRoute = createRouteMatcher([
-  "/login(.*)",
-  "/signup(.*)",
-  "/forgot-password(.*)",
-]);
-
-const isPublicHomePage = createRouteMatcher(["/"]);
-
-const isApiRoute = createRouteMatcher(["/api(.*)"]);
-
-export default clerkMiddleware(async (auth, req) => {
-  const { userId } = auth();
-
-  // Redirect authenticated users away from auth pages and home to dashboard
-  if (userId && (isAuthRoute(req) || isPublicHomePage(req))) {
-    const dashboardUrl = new URL("/dashboard", req.url);
-    return NextResponse.redirect(dashboardUrl);
+  // Redirect auth pages and home directly to dashboard (no login required)
+  if (
+    pathname === "/" ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password")
+  ) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  // Protect dashboard routes
-  if (isProtectedRoute(req)) {
-    auth().protect();
-  }
-
-  // Apply rate limiting to API routes
-  if (isApiRoute(req)) {
+  // Apply rate limiting to API routes (if Redis is configured)
+  if (pathname.startsWith("/api")) {
     const rateLimitResponse = await applyRateLimit(req);
     if (rateLimitResponse) return rateLimitResponse;
   }
-});
 
-/**
- * Apply rate limiting to API requests using Upstash Redis.
- * Returns a 429 response if rate limit is exceeded, otherwise null.
- */
+  return NextResponse.next();
+}
+
 async function applyRateLimit(req: NextRequest): Promise<NextResponse | null> {
-  // Skip rate limiting if Redis is not configured
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
     return null;
   }
 
   try {
-    // Dynamic import to avoid issues when env vars aren't set
     const { apiRateLimit, generationRateLimit, uploadRateLimit, publishRateLimit, checkRateLimit, getRateLimitHeaders } =
       await import("@/lib/rate-limit");
 
     const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "anonymous";
     const pathname = req.nextUrl.pathname;
 
-    // Select appropriate rate limiter based on route
     let limiter = apiRateLimit;
     if (pathname.startsWith("/api/clips/generate") || pathname.startsWith("/api/clips/regenerate")) {
       limiter = generationRateLimit;
@@ -77,16 +54,11 @@ async function applyRateLimit(req: NextRequest): Promise<NextResponse | null> {
     if (!result.success) {
       return NextResponse.json(
         { error: "Too many requests. Please try again later." },
-        {
-          status: 429,
-          headers: getRateLimitHeaders(result),
-        }
+        { status: 429, headers: getRateLimitHeaders(result) }
       );
     }
-
     return null;
   } catch (error) {
-    // If rate limiting fails, allow the request through
     console.warn("[Middleware] Rate limit check failed:", error);
     return null;
   }

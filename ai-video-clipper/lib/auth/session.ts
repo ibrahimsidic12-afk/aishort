@@ -1,4 +1,3 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
 import { db } from "../db";
 
 export interface SessionUser {
@@ -12,16 +11,20 @@ export interface SessionUser {
   connectedAccounts: Record<string, unknown>;
 }
 
+const ANONYMOUS_USER_CLERK_ID = "anonymous-shared-user";
+const ANONYMOUS_USER_EMAIL = "anonymous@aishort.local";
+
+/**
+ * Returns a shared anonymous user (no auth required).
+ * Auto-creates the user in DB on first call.
+ */
 export async function getCurrentUser(): Promise<SessionUser | null> {
   try {
-    const { userId } = await auth();
-    if (!userId) return null;
-
-    // Try to find existing user in DB
     let user: any = null;
+
     try {
       user = await db.user.findUnique({
-        where: { clerkId: userId },
+        where: { clerkId: ANONYMOUS_USER_CLERK_ID },
         select: {
           id: true,
           clerkId: true,
@@ -34,27 +37,19 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
       });
     } catch (dbError) {
       console.error("[AUTH] DB query failed:", dbError);
-      // DB might not be connected — return null but don't crash
       return null;
     }
 
-    // If user doesn't exist in DB yet (webhook hasn't fired), create them
     if (!user) {
       try {
-        const clerkUser = await currentUser();
-        if (!clerkUser) return null;
-
-        const email = clerkUser.emailAddresses?.[0]?.emailAddress || "";
-        const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
-
         user = await db.user.create({
           data: {
-            clerkId: userId,
-            email,
-            name,
-            avatarUrl: clerkUser.imageUrl || null,
-            plan: "FREE",
-            credits: 10,
+            clerkId: ANONYMOUS_USER_CLERK_ID,
+            email: ANONYMOUS_USER_EMAIL,
+            name: "Anonymous User",
+            avatarUrl: null,
+            plan: "BUSINESS",
+            credits: 999999,
           },
           select: {
             id: true,
@@ -67,7 +62,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
           },
         });
       } catch (createError) {
-        console.error("[AUTH] Failed to create user:", createError);
+        console.error("[AUTH] Failed to create anonymous user:", createError);
         return null;
       }
     }

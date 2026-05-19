@@ -8,9 +8,42 @@ import Link from "next/link";
 // the resulting Prisma error as a non-2xx response at runtime.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+// Force the Node runtime explicitly. The Edge runtime can't run Prisma
+// (it dynamically loads native bindings), and if any upstream config or
+// import accidentally pushed this page to Edge it would 4xx during the
+// initial SSR. Pinning the runtime makes that class of failure impossible.
+export const runtime = "nodejs";
+// Disable response caching so a stale 4xx from a previous deployment
+// can't be served from the data cache or the CDN.
+export const fetchCache = "force-no-store";
+
+/**
+ * Run an async DB query and return its result, or `fallback` on any
+ * error. Each query gets its own try/catch so a single Prisma timeout or
+ * connection blip can't take down the whole dashboard render — without
+ * this, one rejected promise inside `Promise.all` would bubble up,
+ * escape the page-level catch on rare paths, and surface as a non-2xx
+ * RSC response.
+ */
+async function safe<T>(fn: () => Promise<T>, fallback: T, label: string): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    console.error(`[DASHBOARD] ${label} failed:`, err);
+    return fallback;
+  }
+}
 
 export default async function DashboardPage() {
-  const user = await getCurrentUser();
+  // `getCurrentUser` already swallows errors and returns null, but wrap
+  // it once more so a synchronous throw (e.g. Prisma client init failure
+  // on cold start) can never escape this server component.
+  let user: Awaited<ReturnType<typeof getCurrentUser>> = null;
+  try {
+    user = await getCurrentUser();
+  } catch (err) {
+    console.error("[DASHBOARD] getCurrentUser threw:", err);
+  }
   if (!user) {
     // Don't redirect to /login here — middleware already protects this route.
     // If getCurrentUser returns null, it means DB is unavailable.
@@ -33,22 +66,28 @@ export default async function DashboardPage() {
     );
   }
 
-  // Fetch real stats in parallel
-  let videoCount = 0;
-  let clipCount = 0;
-  let publishedCount = 0;
-  let recentVideos: any[] = [];
-  let recentJobs: any[] = [];
-  let usageStats: any = null;
-
-  try {
-    [videoCount, clipCount, publishedCount, recentVideos, recentJobs, usageStats] =
-      await Promise.all([
-        db.video.count({ where: { userId: user.id } }),
-        db.clip.count({ where: { userId: user.id } }),
-        db.clip.count({ where: { userId: user.id, status: "PUBLISHED" } }),
+  // Fetch real stats in parallel. Each call is wrapped in `safe()` so a
+  // single rejected promise can't cause the whole render to fail.
+  const userId = user.id;
+  const [
+    videoCount,
+    clipCount,
+    publishedCount,
+    recentVideos,
+    recentJobs,
+    usageStats,
+  ] = await Promise.all([
+    safe(() => db.video.count({ where: { userId } }), 0, "video.count"),
+    safe(() => db.clip.count({ where: { userId } }), 0, "clip.count"),
+    safe(
+      () => db.clip.count({ where: { userId, status: "PUBLISHED" } }),
+      0,
+      "clip.count(PUBLISHED)"
+    ),
+    safe(
+      () =>
         db.video.findMany({
-          where: { userId: user.id },
+          where: { userId },
           orderBy: { createdAt: "desc" },
           take: 5,
           select: {
@@ -60,8 +99,13 @@ export default async function DashboardPage() {
             _count: { select: { clips: true } },
           },
         }),
+      [] as any[],
+      "video.findMany"
+    ),
+    safe(
+      () =>
         db.job.findMany({
-          where: { userId: user.id },
+          where: { userId },
           orderBy: { createdAt: "desc" },
           take: 5,
           select: {
@@ -72,12 +116,11 @@ export default async function DashboardPage() {
             completedAt: true,
           },
         }),
-        getUserUsageStats(user.id),
-      ]);
-  } catch (error) {
-    console.error("[DASHBOARD] Database query failed:", error);
-    // Continue with defaults (zeros) instead of crashing
-  }
+      [] as any[],
+      "job.findMany"
+    ),
+    safe(() => getUserUsageStats(userId), null as any, "getUserUsageStats"),
+  ]);
 
   const stats = [
     {

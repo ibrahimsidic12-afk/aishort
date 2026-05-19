@@ -7,6 +7,8 @@ import { ClipDetailClient } from "@/components/clips/clip-detail-client";
 // Always render per-request — clip data is per-user and changes often.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+export const runtime = "nodejs";
+export const fetchCache = "force-no-store";
 
 interface ClipDetailPageProps {
   params: Promise<{ id: string }>;

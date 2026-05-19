@@ -8,6 +8,8 @@ import { ClipsBulkActions } from "@/components/clips/clips-bulk-actions";
 // Always render per-request — clip data is per-user and changes often.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+export const runtime = "nodejs";
+export const fetchCache = "force-no-store";
 
 const PAGE_SIZE = 12;
 

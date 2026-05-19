@@ -125,11 +125,11 @@ export default async function VideoDetailPage({ params }: VideoDetailPageProps) 
             {video.clips.length === 0 ? (
               <div className="mt-6 text-center">
                 <p className="text-sm text-muted-foreground">
-                  {video.status === "READY"
+                  {video.status === "READY" || video.status === "PROCESSING"
                     ? "No clips generated yet."
                     : "Clips will appear here once the video is transcribed."}
                 </p>
-                {video.status === "READY" && (
+                {(video.status === "READY" || video.status === "PROCESSING") && (
                   <GenerateClipsButton videoId={video.id} maxClips={10} />
                 )}
               </div>

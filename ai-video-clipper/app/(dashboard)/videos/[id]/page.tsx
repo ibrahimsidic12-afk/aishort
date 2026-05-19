@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { GenerateClipsButton } from "@/components/video/generate-clips-button";
 import { ClipsListActions } from "@/components/video/clips-list-actions";
+import { isPlayableMediaUrl } from "@/lib/media/url";
 
 interface VideoDetailPageProps {
   params: Promise<{ id: string }>;
@@ -93,12 +94,13 @@ export default async function VideoDetailPage({ params }: VideoDetailPageProps) 
         <div className="space-y-6 lg:col-span-2">
           {/* Video preview */}
           <div className="overflow-hidden rounded-xl border bg-card shadow-card">
-            {video.storageUrl ? (
+            {isPlayableMediaUrl(video.storageUrl) ? (
               <video
-                src={video.storageUrl}
+                src={video.storageUrl as string}
                 controls
                 className="aspect-video w-full bg-black"
                 preload="metadata"
+                playsInline
               />
             ) : (
               <div className="flex aspect-video items-center justify-center bg-muted">
@@ -106,7 +108,21 @@ export default async function VideoDetailPage({ params }: VideoDetailPageProps) 
                   <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
                     <polygon points="5 3 19 12 5 21 5 3" />
                   </svg>
-                  <p className="mt-2 text-sm text-muted-foreground">Video preview not available</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {video.storageUrl
+                      ? "Source is hosted externally and can't be previewed inline."
+                      : "Video preview not available"}
+                  </p>
+                  {video.storageUrl && (
+                    <a
+                      href={video.storageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-block text-xs font-medium text-primary hover:underline"
+                    >
+                      Open original
+                    </a>
+                  )}
                 </div>
               </div>
             )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
+import { isPlayableMediaUrl } from "@/lib/media/url";
 
 interface ClipVideoPlayerProps {
   videoUrl: string | null;
@@ -20,6 +21,9 @@ export function ClipVideoPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration] = useState(endTime - startTime);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const playable = isPlayableMediaUrl(videoUrl);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -55,13 +59,37 @@ export function ClipVideoPlayer({
 
     if (isPlaying) {
       videoRef.current.pause();
-    } else {
-      if (videoRef.current.currentTime >= endTime || videoRef.current.currentTime < startTime) {
-        videoRef.current.currentTime = startTime;
-      }
-      videoRef.current.play();
+      setIsPlaying(false);
+      return;
     }
-    setIsPlaying(!isPlaying);
+
+    if (
+      videoRef.current.currentTime >= endTime ||
+      videoRef.current.currentTime < startTime
+    ) {
+      videoRef.current.currentTime = startTime;
+    }
+
+    // `play()` returns a promise that rejects on autoplay policy violations
+    // or on `NotSupportedError` when the source is undecodable. Swallowing
+    // the rejection avoids the "Uncaught (in promise)" console error.
+    const result = videoRef.current.play();
+    if (result && typeof result.then === "function") {
+      result
+        .then(() => setIsPlaying(true))
+        .catch((err: unknown) => {
+          setIsPlaying(false);
+          const name = err instanceof Error ? err.name : "PlaybackError";
+          if (name === "NotSupportedError") {
+            setLoadError("This video format isn't supported by your browser.");
+          } else if (name !== "AbortError") {
+            // AbortError fires when the user pauses mid-play — not an error.
+            setLoadError("Couldn't start playback. Try reloading the page.");
+          }
+        });
+    } else {
+      setIsPlaying(true);
+    }
   }, [isPlaying, startTime, endTime]);
 
   const handleSeek = useCallback(
@@ -87,7 +115,7 @@ export function ClipVideoPlayer({
     return () => window.removeEventListener("keydown", handleKey);
   }, [togglePlay]);
 
-  if (!videoUrl) {
+  if (!playable) {
     return (
       <div className="relative aspect-video overflow-hidden rounded-lg border bg-muted">
         {thumbnailUrl ? (
@@ -111,16 +139,39 @@ export function ClipVideoPlayer({
       <div className="relative aspect-video overflow-hidden rounded-lg border bg-black">
         <video
           ref={videoRef}
-          src={videoUrl}
+          src={videoUrl ?? undefined}
           onLoadedMetadata={handleLoadedMetadata}
           onTimeUpdate={handleTimeUpdate}
           onEnded={() => setIsPlaying(false)}
+          onError={() => {
+            setLoadError(
+              "This video can't be played. The file may still be rendering, or the format isn't supported."
+            );
+            setIsPlaying(false);
+          }}
           className="h-full w-full object-contain"
           preload="metadata"
+          playsInline
         />
 
+        {loadError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 p-6 text-center text-sm text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <p className="font-medium">{loadError}</p>
+            {thumbnailUrl && (
+              <img
+                src={thumbnailUrl}
+                alt="Clip thumbnail"
+                className="mt-1 max-h-24 rounded opacity-60"
+              />
+            )}
+          </div>
+        )}
+
         {/* Play overlay when paused */}
-        {!isPlaying && isLoaded && (
+        {!isPlaying && isLoaded && !loadError && (
           <button
             onClick={togglePlay}
             className="absolute inset-0 flex items-center justify-center bg-black/20 transition hover:bg-black/30"
